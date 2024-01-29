@@ -2,12 +2,28 @@
 
 This is an assortment of bot scripts for bulk editing in the VOCALOID Lyrics Wiki.
 
-System Requirements:
+## System Requirements
  - Python 3.10+
  - Pywikibot 8.1+
  - Installed python packages:
    - [pip install aiohttp](https://pypi.org/project/aiohttp/)
    - [pip install regex](https://pypi.org/project/regex/)
+
+## Table of Contents
+- [Custom Bot Scripts for Vocaloid Lyrics Wiki](#custom-bot-scripts-for-vocaloid-lyrics-wiki)
+  - [System Requirements](#system-requirements)
+  - [Table of Contents](#table-of-contents)
+  - [Installation \& Configuration](#installation--configuration)
+    - [Python](#python)
+    - [Pywikibot](#pywikibot)
+    - [Scripts](#scripts)
+  - [Producer Page Editor Bot](#producer-page-editor-bot)
+  - [Internal Wiki Link and Category Mover Bot](#internal-wiki-link-and-category-mover-bot)
+    - [Moving producer category](#moving-producer-category)
+    - [Moving singer category](#moving-singer-category)
+    - [Moving internal wiki links](#moving-internal-wiki-links)
+
+
 
 ## Installation & Configuration
 
@@ -51,7 +67,7 @@ System Requirements:
 
 The script vlw_producerpages.py is used to update the producer pages in the VOCALOID Lyrics Wiki in bulk.
 
-### Usage:
+<h4>Usage</h4>
 
 To edit all pages in the category "Producers":
 
@@ -81,7 +97,7 @@ python pwb.py vlw_producerpages [options] -simulate
 
 The script vlw_editlinks.py is used to update the internal wiki links and category tags in the VOCALOID Lyrics Wiki.
 
-### Moving producer category:
+### Moving producer category
 
 ```bat
 python pwb.py vlw_editlinks -moveprodcat -old:"foo" -new:"bar" [-changeprodredirect] [-keeplinkcap]
@@ -110,13 +126,13 @@ General tips:
 
  - Usually `-changeprodredirect` is used to correct a mistyped producer's name and `-changeprodredirect -keeplinkcap` is used when the producer is undergoing a name change.
 
-### Moving singer category:
+### Moving singer category
 
 Edit the category tag of the singer/vocal synth, from [[Category:Songs featuring foo]] -> [[Category:Songs featuring bar]]
 
     python pwb.py vlw_editlinks -movesingercat -old:"foo" -new:"bar"
 
-### Moving internal wiki links:
+### Moving internal wiki links
 
 Edit internal wiki links that link to the page "foo" so that they will be linked to the page "bar" 
 
