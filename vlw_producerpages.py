@@ -3,6 +3,8 @@
 
 This is a custom bot for bulk updating of producer pages in the Vocaloid Lyrics Wiki.
 
+Requires Python 3.10+
+
 It uses the pywikibot wrapper to query the contents of the producer pages in batches, then proceeds to 
 asynchronously edit each producer page. As a result, total execution time is in a few minutes rather than hours.
 
@@ -71,16 +73,6 @@ class FailedToUpdatePwtTables(Exception):
   pass
 class FailedToUpdateAwtTables(Exception):
   pass
-
-class AsyncSession:
-  def __init__(self, url):
-    self._url = url
-  async def __aenter__(self):
-    self.session = aiohttp.ClientSession()
-    response = await self.session.get(self._url)
-    return response
-  async def __aexit__(self, exc_type, exc_value, exc_tb):
-    await self.session.close()
 
 class ProducerPageUtil:
 
@@ -153,7 +145,7 @@ class ProducerPageUtil:
     for page in listPages:
       if page["ns"] != 0:
         continue
-      if re.search(r" \((album|E\.?P\.?)\)$", page["title"], re.I) is not None:
+      if re.search(r" \((album|E\.?P\.?)\)$", page["title"]) is not None:
         setAwtLinked.add(page["title"])
       else:
         setPwtLinked.add(page["title"])
@@ -362,6 +354,7 @@ class ProducerPageEditor:
       )
       gen = pagegenerators.PreloadingGenerator(gen, groupsize=60)
     self.producerPages = gen
+    self.editedPages = []
     self.errorPages = []
     self.failedToAdd = {}
    
@@ -477,7 +470,7 @@ class ProducerPageEditor:
     finally:
       if not isEdited:
         return
-      #self.log(f"SIMULATING: Saving {pageTitle}")
+      self.editedPages.append(pageTitle)
       page.text = pageContents
       page.save(
         summary=self.CONST_EDIT_SUMMARY, 
@@ -505,6 +498,8 @@ class ProducerPageEditor:
     else:
       asyncio.run(self.treatPages())
       self.createFinalReport()
+      self.log(f"{ENUM_ANSI_COLOURS.magenta.value}Finished editing the following pages:{ENUM_ANSI_COLOURS.default.value}")
+      self.log("\n".join(self.editedPages))
 
 def main(*args: str) -> None:
   options = {}
