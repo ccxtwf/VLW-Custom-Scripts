@@ -29,7 +29,7 @@ This is an assortment of bot scripts for bulk editing in the VOCALOID Lyrics Wik
 
 ### Python
  - Install the latest Python distributable from [www.python.org](https://www.python.org/downloads/).
- - When installing, be sure to check the Add Python to PATCH option.
+ - When installing, be sure to check the Add Python to PATH option.
  - Otherwise you can manually add the Python distributable by following the steps detailed [here](https://www.javatpoint.com/how-to-set-python-path).
  - You can check if Python has been properly installed by opening the command prompt and running the following command:
 
