@@ -65,23 +65,23 @@ This is an assortment of bot scripts for bulk editing in the VOCALOID Lyrics Wik
 
 ## Producer Page Editor Bot
 
-The script vlw_producerpages.py is used to update the producer pages in the VOCALOID Lyrics Wiki in bulk.
+The script vlw_producerpages.py is used to update discography tables in the producer pages in the VOCALOID Lyrics Wiki in bulk.
 
 <h4>Usage</h4>
 
-To edit all pages in the category "Producers":
+To update all pages in the category "Producers":
 
 ```bat
 python pwb.py vlw_producerpages
 ```
 
-To edit all pages in the category "Producers", starting from the given page title:
+To update all pages in the category "Producers", starting from the given page title:
 
 ```bat
 python pwb.py vlw_producerpages -from:<page_title>
 ```
 
-To edit only the given page:
+To update only the given page:
 
 ```bat
 python pwb.py vlw_producerpages -page:<page_title>
