@@ -8,6 +8,7 @@ This is an assortment of bot scripts for bulk editing in the VOCALOID Lyrics Wik
  - Installed python packages:
    - [pip install aiohttp](https://pypi.org/project/aiohttp/)
    - [pip install regex](https://pypi.org/project/regex/)
+   - [pip install mwparserfromhell](https://pypi.org/project/mwparserfromhell/)
 
 ## Table of Contents
 - [Custom Bot Scripts for Vocaloid Lyrics Wiki](#custom-bot-scripts-for-vocaloid-lyrics-wiki)
@@ -17,7 +18,8 @@ This is an assortment of bot scripts for bulk editing in the VOCALOID Lyrics Wik
     - [Python](#python)
     - [Pywikibot](#pywikibot)
     - [Scripts](#scripts)
-  - [Producer Page Editor Bot](#producer-page-editor-bot)
+  - [Producer Page Discography Auto-Updater](#producer-page-discography-auto-updater)
+  - [Producer Page Link Checker](#producer-page-link-checker)
   - [Internal Wiki Link and Category Mover Bot](#internal-wiki-link-and-category-mover-bot)
     - [Moving producer category](#moving-producer-category)
     - [Moving singer category](#moving-singer-category)
@@ -63,7 +65,7 @@ This is an assortment of bot scripts for bulk editing in the VOCALOID Lyrics Wik
   python pwb.py <name of script>
   ```
 
-## Producer Page Editor Bot
+## Producer Page Discography Auto-Updater
 
 The script vlw_producerpages.py is used to update discography tables in the producer pages in the VOCALOID Lyrics Wiki in bulk.
 
@@ -93,6 +95,24 @@ For testing of the bot. The global flag `-simulate` blocks all changes from bein
 python pwb.py vlw_producerpages [options] -simulate
 ```
 
+## Producer Page Link Checker
+
+The script vlw_producerpageslinks.py is used to check whether a link to each existing producer page has been added to their respective producer category pages.
+
+<h4>Usage</h4>
+
+To update all pages in the category "Producers":
+
+```bat
+python pwb.py vlw_producerpageslinks
+```
+
+To update all pages in the category "Producers", starting from the given page title:
+
+```bat
+python pwb.py vlw_producerpageslinks -from:<page_title>
+```
+
 ## Internal Wiki Link and Category Mover Bot
 
 The script vlw_editlinks.py is used to update the internal wiki links and category tags in the VOCALOID Lyrics Wiki.
@@ -112,7 +132,7 @@ If this command is run with the optional flag `-changeprodredirect`, then the bo
 
 If this command is also run with the optional flag `-keeplinkcap`, then the bot will keep the old name as the link text.
 
-    -old:"foo" -new:"bar":      [[foo]] -> [[foo|bar]]
+    -old:"foo" -new:"bar":      [[foo]] -> [[bar|foo]]
 
 General tips:
  - If you only want to change the producer category tags, and want to keep the wiki links as they are, run...
@@ -139,5 +159,4 @@ Edit internal wiki links that link to the page "foo" so that they will be linked
 If linkcap is specified then the new wikilink will have the specified parameter as the link caption
     
     python pwb.py vlw_editlinks -old:"foo" -new:"bar" -linkcap:"text" -[page|category|file]:...
-
     
