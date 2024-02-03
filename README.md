@@ -44,6 +44,7 @@ This is an assortment of bot scripts for bulk editing in the VOCALOID Lyrics Wik
   ```bat
   pip install aiohttp
   pip install regex
+  pip install mwparserfromhell
   ```
 
 ### Pywikibot
