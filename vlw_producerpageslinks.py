@@ -129,7 +129,23 @@ class ProducerPageEditor:
       comparedLink)
     rx = re.compile(comparedLink)
     return rx.match(comparedPageTitle) is not None
-  
+
+  async def checkRedirectsToProducerCategory(self, prodcat: pywikibot.Page, prodpageName: str):
+    redirects = list(prodcat.redirects(namespaces=[0]))
+    if len(redirects) == 0:
+      return
+    for redirectPage in redirects:
+      if redirectPage.title().startswith("Category:"):
+        continue
+      redirectPage.text = f"#REDIRECT[[{prodpageName}]]"
+      redirectPage.save(
+        summary=f"{self.CONST_EDIT_SUMMARY}: Redirecting to {prodpageName}",
+        watch="nochange", 
+        minor=True, 
+        botflag=True,
+        asynchronous=True
+      )
+
   async def treatOnePage(self, prodcat: pywikibot.Page, prodpageName: str):
     try:
       isEdited = False
@@ -149,6 +165,9 @@ class ProducerPageEditor:
       elif len(findProducerTemplate) > 1:
         raise ProducerCategoryException("Producer category has more than one {{Producer}} template")
       
+      # Edit pages that redirect to any producer category
+      await self.checkRedirectsToProducerCategory(prodcat, prodpageName)
+
       # Parse template parameters
       oldProdTemplate = str(findProducerTemplate[0])
       producerTemplateParams, usesNumberedParams = self.parseTemplate(findProducerTemplate[0])
@@ -174,7 +193,8 @@ class ProducerPageEditor:
           newProdTemplate += f"|{k}={v}"
       newProdTemplate += "}}"
       prodcat.text = prodcat.text.replace(oldProdTemplate, newProdTemplate, 1)
-      print(prodcat.text)
+      # print(prodcat.text)
+      
       isEdited = True
         
     except Exception as e:
@@ -204,16 +224,30 @@ class ProducerPageEditor:
         pages.append(cur)
       return (pages, (cur is None))
     
+    def filterMappedProdcats(mappedProdCats: List[Tuple[str, str]]) -> Tuple[List[Tuple[str, str]], List[str]]:
+      errorPages = []
+      res = []
+      for prodpageName, prodcatName in mappedProdCats:
+        if prodpageName is None:
+          continue
+        elif prodcatName is None:
+          errorPages.append(prodpageName)
+        else:
+          res.append((prodpageName, prodcatName))
+      return (res, errorPages)
+
     while True:
       pages, reachedEndOfGenerator = unpackPageGenerator(self.producerPages)
       mappedProdCats = await asyncio.gather(*(self.mapProducerCategoryToProducerPage(page) for page in pages))
-      #print(mappedProdCats)
+      mappedProdCats, detectedErrors = filterMappedProdcats(mappedProdCats)
+      if len(detectedErrors) > 0:
+        self.errorPages.extend([(page, "Cannot map to producer category") for page in detectedErrors])
       prodcats = pagegenerators.PagesFromTitlesGenerator(
-        [f"Category:{el[1]} songs list" for el in mappedProdCats if el[1] is not None]
+        [f"Category:{el[1]} songs list" for el in mappedProdCats]
       )
       prodcats = pagegenerators.PreloadingGenerator(prodcats, groupsize=20)
       prodcats, _ = unpackPageGenerator(prodcats)
-      await asyncio.gather(*(self.treatOnePage(page, mappedProdCats[idx][0]) for idx, page in enumerate(prodcats)))
+      await asyncio.gather(*(self.treatOnePage(page, mappedProdCats[idx][0]) for idx, page in enumerate(prodcats) if page is not None))
       if reachedEndOfGenerator:
         break
   
@@ -225,7 +259,7 @@ class ProducerPageEditor:
       self.log("\n".join(self.editedPages))
     if len(self.errorPages) > 0:
       self.log("Could not edit the following pages:")
-      self.log("\n".join(self.errorPages))
+      self.log("\n".join([f"{page}:\t{msg}" for page, msg in self.errorPages]))
 
 def main(*args: str) -> None:
   options = {}

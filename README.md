@@ -98,7 +98,14 @@ python pwb.py vlw_producerpages [options] -simulate
 
 ## Producer Page Link Checker
 
-The script vlw_producerpageslinks.py is used to check whether a link to each existing producer page has been added to their respective producer category pages.
+The script vlw_producerpageslinks.py is used:
+ - To check whether a link to each existing producer page has been added to their respective producer category pages.
+  
+   e.g. If the page `Category:Hachi songs list` does not yet link to the producer page `Hachi` (meaning that the `{{Producer}}` template in the category page does not yet contain a link to the producer page), then this bot will edit the `{{Producer}}` template to add this link.
+
+ - To edit pages that redirect to the producer categories so they redirect to the producer pages instead.
+  
+   e.g. If a page is found that redirects to the category page `Category:Hachi songs list`, then this bot will edit the page so it redirects to the producer page `Hachi` instead.
 
 <h4>Usage</h4>
 
