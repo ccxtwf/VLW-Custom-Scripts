@@ -65,6 +65,7 @@ class ProducerPageEditor:
 
   def __init__(self, fromPage: str = None):
     self.site = pywikibot.Site()
+    self.lock = asyncio.Lock()
     self.CONST_EDIT_SUMMARY = "Bot: Updating producer page links"
     producercategory = pywikibot.Category(self.site, 'Category:Producers')
     gen = pagegenerators.CategorizedPageGenerator(
@@ -200,12 +201,14 @@ class ProducerPageEditor:
     except Exception as e:
       errMessage = str(e)
       self.log(f"[{prodpageName}]\t{errMessage}", ENUM_LOGGER_STATES.error.value)
-      self.errorPages.append(prodpageName, errMessage)
+      async with self.lock:
+        self.errorPages.append(prodpageName, errMessage)
 
     finally:
       if not isEdited:
         return
-      self.editedPages.append(prodpageName)
+      async with self.lock:
+        self.editedPages.append(prodpageName)
       prodcat.save(
         summary=self.CONST_EDIT_SUMMARY, 
         watch="nochange", 

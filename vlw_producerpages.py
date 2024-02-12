@@ -31,7 +31,7 @@ import aiohttp
 import urllib.parse
 import regex as re
 
-from typing import Callable, List, Tuple, Set
+from typing import Callable, List, Tuple, Set, Optional
 from enum import Enum
 
 from datetime import datetime
@@ -83,7 +83,7 @@ class ProducerPageUtil:
   def getProducerCategory(self, pageContents: str) -> str:
     prodcat = re.search(r"\{\{\s*[Pp]rodLinks\s*\|([^\}\|]*)", pageContents, re.S)
     if prodcat is None:
-      raise Exception("Cannot find {{ProdLinks}}")
+      raise Exception("Cannot find {{t|ProdLinks}}")
     prodcat = prodcat.group(1).strip()
     prodcat = re.sub(r"\s*\bcatname\b\s*=\s*", "", prodcat)
     return prodcat
@@ -263,9 +263,9 @@ class ProducerPageUtil:
 
     listMatchPwt = self._extractPwtTables(pageContents)
     if len(listMatchPwt) > 1:
-      raise Exception("More than one pwt row table found.")
+      raise FailedToUpdatePwtTables("More than one pwt row table found.")
     if len(listMatchPwt) == 0:
-      raise Exception("Cannot find pwt row table.")
+      raise FailedToUpdatePwtTables("Cannot find pwt row table.")
     
     pwtTableWikitext = listMatchPwt[0].group(0)
 
@@ -299,7 +299,7 @@ class ProducerPageUtil:
     
     listMatchAwt = self._extractAwtTables(pageContents)
     if len(listMatchAwt) > 1:
-      raise Exception("More than one awt row table found.")            
+      raise FailedToUpdateAwtTables("More than one awt row table found.")            
     
     if len(listMatchAwt) == 1:
       awtTableWikitext = listMatchAwt[0].group(0)
@@ -341,6 +341,7 @@ class ProducerPageEditor:
     self.CONST_EDIT_SUMMARY = "Bot: Auto-adding songs and albums to the producer page tables"
     self.utils = ProducerPageUtil(self.site, self.log)
     self.finalWikiReportPageTitle = CONST_WIKI_REPORT_BLOG
+    self.lock = asyncio.Lock()
     self.mode_onepageonly = onlyPage is not None
     if self.mode_onepageonly:
       gen = pywikibot.Page(self.site, onlyPage)
@@ -356,7 +357,6 @@ class ProducerPageEditor:
     self.producerPages = gen
     self.editedPages = []
     self.errorPages = []
-    self.failedToAdd = {}
    
   def log(self, message: str, status: ENUM_LOGGER_STATES = ENUM_LOGGER_STATES.log.value) -> None:
     if status == ENUM_LOGGER_STATES.log.value:
@@ -375,19 +375,20 @@ class ProducerPageEditor:
     editReport = "Report generated " + curTime
     editReport += "\n\n'''''This is a bot-generated report, iterating through the producer pages in [[:Category:Producers]]'''''\n\n''Pages with errors:''\n<categorytree namespaces=0 hideroot=on>Error/Producer pages/PWT</categorytree>\n\n\n"
 
-    if len(self.errorPages):
+    if len(self.errorPages) > 0:
       self.log("The following pages need intervention:", ENUM_LOGGER_STATES.error.value)
       editReport += "'''''The bot was not able to update the producer works tables for the following pages''''':\n\n"
       for item in self.errorPages:
         self.log(f"{item[0]}\t{item[1]}")
         editReport += f"*[[{item[0]}]], {item[1]}\n"
 
-    if len(self.failedToAdd.keys()):
+    failedToAdd = [(pageTitle, missingEntries) for pageTitle, _, missingEntries in self.errorPages if missingEntries is not None]
+    if len(failedToAdd) > 0:
       editReport += "\n\n''The following producer pages are missing these song/album pages:''\n\n"
-      for item, missingPages in self.failedToAdd.items():
-        editReport += f"=='''[[{item}]]'''==\n"
+      for pageTitle, missingEntries in failedToAdd:
+        editReport += f"=='''[[{pageTitle}]]'''==\n"
         editReport += "\n".join(
-          map(lambda page: f"*[[{page}]]", missingPages)
+          map(lambda page: f"*[[{page}]]", missingEntries)
         )
         editReport += "\n\n"
     else:
@@ -401,22 +402,28 @@ class ProducerPageEditor:
 
     return
 
-  async def treatOnePage(self, page: pywikibot.Page):
+  async def treatOnePage(self, page: pywikibot.Page) -> Tuple[Optional[bool], Optional[str], Optional[str], Optional[List[str]]]:
+    
+    isEdited = False
+    failedToAdd = None
+    errMessage = None
+    pageTitle = None
+
+    if page is None:
+      return
+    
     try:
 
-      isEdited = False
       pageTitle = page.title()
-      if page is None:
-        return
-      elif not page.exists():
+      if not page.exists():
         raise PageNotFoundException("Page doesn't exist")
       elif page.isRedirectPage():
         raise PageNotFoundException("Page is a redirect")
-
+      
       pageContents = page.text
       
       prodcat = self.utils.getProducerCategory(pageContents)
-      self.log(f"[{pageTitle}]\t{ENUM_ANSI_COLOURS.magenta.value}Main category page is: {prodcat} songs list{ENUM_ANSI_COLOURS.default.value}")
+      #self.log(f"[{pageTitle}]\t{ENUM_ANSI_COLOURS.magenta.value}Main category page is: {prodcat} songs list{ENUM_ANSI_COLOURS.default.value}")
 
       ((songPagesInCategory, albumPagesInCategory), (songPagesInTable, albumPagesInTable)) = await asyncio.gather(
         self.utils.getPagesInProducerCategory(prodcat),
@@ -448,29 +455,21 @@ class ProducerPageEditor:
         pageContents = self.utils.updateAwt(pageContents, missingAlbumPages)
         isEdited = True
 
-    except PageNotFoundException as e:
-      errMessage = str(e)
-      self.log(f"[{pageTitle}]\t{errMessage}", ENUM_LOGGER_STATES.error.value)
-      self.errorPages.append(pageTitle, errMessage)
     except FailedToUpdatePwtTables as e:
       errMessage = str(e)
       self.log(f"[{pageTitle}]\t{errMessage}", ENUM_LOGGER_STATES.error.value)
-      self.errorPages.append(pageTitle, errMessage)
-      self.failedToAdd[pageTitle] = [*missingSongPages, *missingAlbumPages]
+      failedToAdd = [*missingSongPages, *missingAlbumPages]
     except FailedToUpdateAwtTables as e:
       errMessage = str(e)
       self.log(f"[{pageTitle}]\t{errMessage}", ENUM_LOGGER_STATES.error.value)
-      self.errorPages.append(pageTitle, errMessage)
-      self.failedToAdd[pageTitle] = missingAlbumPages
+      failedToAdd = missingAlbumPages
     except Exception as e:
       errMessage = str(e)
       self.log(f"[{pageTitle}]\t{errMessage}", ENUM_LOGGER_STATES.error.value)
-      self.errorPages.append(pageTitle, errMessage)
     
     finally:
       if not isEdited:
-        return
-      self.editedPages.append(pageTitle)
+        return (isEdited, pageTitle, errMessage, failedToAdd)
       page.text = pageContents
       page.save(
         summary=self.CONST_EDIT_SUMMARY, 
@@ -479,15 +478,29 @@ class ProducerPageEditor:
         botflag=False,
         asynchronous=True
       )
+      return (True, pageTitle, errMessage, failedToAdd)
 
   async def treatPages(self):
+
+    async def unpackToLog(results: List[Tuple[bool, str, str, List[str]]]):
+      async with self.lock:
+        for tpl in results:
+          if tpl is None or tpl[0] is None:
+            continue
+          isEdited, pageTitle, errMessage, failedToAddList = tpl
+          if isEdited:
+            self.editedPages.append(pageTitle)
+          if errMessage is not None:
+            self.errorPages.append((pageTitle, errMessage, failedToAddList))
+
     while True:
       pages = []
       cur = None
       for i in range(20):
         cur = next(self.producerPages, None)
         pages.append(cur)
-      await asyncio.gather(*(self.treatOnePage(page) for page in pages))
+      results = await asyncio.gather(*(self.treatOnePage(page) for page in pages))
+      await unpackToLog(results)
       if cur is None:
         break
   
@@ -496,10 +509,12 @@ class ProducerPageEditor:
     if self.mode_onepageonly:
       asyncio.run(self.treatOnePage(self.producerPages))
     else:
+      lock = asyncio.Lock()
       asyncio.run(self.treatPages())
       self.createFinalReport()
-      self.log(f"{ENUM_ANSI_COLOURS.magenta.value}Finished editing the following pages:{ENUM_ANSI_COLOURS.default.value}")
-      self.log("\n".join(self.editedPages))
+      if (len(self.editedPages) > 0):
+        self.log(f"{ENUM_ANSI_COLOURS.magenta.value}Finished editing the following pages:{ENUM_ANSI_COLOURS.default.value}")
+        self.log("\n".join(self.editedPages))
 
 def main(*args: str) -> None:
   options = {}
