@@ -7,24 +7,24 @@ By default the pywikibot wrapper will prompt the user to confirm the changes unl
 
 Usage:
 
-python pwb.py vlw_editlinks -moveprodcat -old:"foo" -new:"bar" [-changeprodredirect] [-keeplinkcap]
+python pwb.py vlw_editlinks -moveprodcat -old:"foo" -new:"bar" [-changelink] [-preserveoldname]
 
   Edit the category tag of the producer, from [[Category:foo songs list]] -> [[Category:bar songs list]]
 
-  If this command is run with the optional flag -changeprodredirect, then the bot will also change the producer redirect links in the page.
+  If this command is run with the optional flag -changelink, then the bot will also change the producer redirect links in the page.
     -old:"foo" -new:"bar":      [[foo]] -> [[bar]], [[Foo]] -> [[bar]]
     -old:"w1 w2" -new:"a1 a2":  [[w1 w2]] -> [[a1 a2]], [[w1_w2]] -> [[a1 a2]], [[W1 w2]] -> [[a1 a2]]
 
-  If this command is also run with the optional flag -keeplinkcap, then the bot will keep the old name as the link text.
+  If this command is also run with the optional flag -preserveoldname, then the bot will keep the old name as the link text.
     -old:"foo" -new:"bar":      [[foo]] -> [[bar|foo]]
 
   General tips:
     If you only want to change the producer category tags, and want to keep the normal links as they are, run...
       python pwb.py vlw_editlinks -moveprodcat -old:"..." -new:"..."
     If you want to change the producer category tags and also change the producer links (usually to prevent double redirects), run...
-      python pwb.py vlw_editlinks -moveprodcat -old:"MATERU" -new:"MARETU" -changeprodredirect
-      python pwb.py vlw_editlinks -moveprodcat -old:"Hachi" -new:"Kenshi Yonezu" -changeprodredirect -keeplinkcap
-    Usually -changeprodredirect is used to correct a mistyped producer's name and -changeprodredirect -keeplinkcap is used when the producer is undergoing a name change.
+      python pwb.py vlw_editlinks -moveprodcat -old:"MATERU" -new:"MARETU" -changelink
+      python pwb.py vlw_editlinks -moveprodcat -old:"Hachi" -new:"Kenshi Yonezu" -changelink -preserveoldname
+    Usually -changelink is used to correct a mistyped producer's name and -changelink -preserveoldname is used when the producer is undergoing a name change.
 
 python pwb.py vlw_editlinks -movesingercat -old:"foo" -new:"bar"
 
@@ -90,8 +90,8 @@ class LinkEditorBot(
 
     # User options for moving producer categories
     'moveprodcat': False,
-    'changeprodredirect': False,
-    'keeplinkcap': False,
+    'changelink': False,
+    'preserveoldname': False,
 
     # User options for moving singer categories
     'movesingercat': False
@@ -200,7 +200,7 @@ class LinkEditorBot(
 
   def treat_page(self) -> None:
 
-    curpage = self.current_page
+    curpage: pywikibot.Page = self.current_page
     str_page = curpage.text
     title = curpage.title()
 
@@ -221,8 +221,8 @@ class LinkEditorBot(
 
       old_producer_alias = self.opt.old
       new_producer_alias = self.opt.new
-      bool_changeredirect = self.opt.changeprodredirect
-      bool_showoldlinkcap = self.opt.keeplinkcap
+      bool_changeredirect = self.opt.changelink
+      bool_showoldlinkcap = self.opt.preserveoldname
 
       default_summary_text = f"Changed category [[Category:{old_producer_alias} songs list]] -> [[Category:{new_producer_alias} songs list]]"
       str_page = self.move_producer_category(str_page, old_producer_alias, new_producer_alias, bool_changeredirect, bool_showoldlinkcap)
@@ -247,6 +247,13 @@ class LinkEditorBot(
       str_page = self.change_internal_link_address(str_page, orig_internal_link, new_internal_link, new_link_text)
 
     self.put_current(str_page, summary=default_summary_text)
+    # curpage.text = str_page
+    # curpage.save(
+    #   default_summary_text,
+    #   watch="nochange", 
+    #   minor=True, 
+    #   bot=True,
+    # )
     return 
 
 
@@ -276,8 +283,8 @@ def main(*args: str) -> None:
     option = arg[1:]
 
     # User options for bot
-    if option in ('chardisambig', 'basevb', 'synth', 'old', 'new', 'linkcap', 'moveprodcat', 'changeprodredirect', 'keeplinkcap', 'movesingercat', 'album'):
-      if option in ('chardisambig', 'moveprodcat', 'changeprodredirect', 'keeplinkcap', 'movesingercat', 'album'):
+    if option in ('chardisambig', 'basevb', 'synth', 'old', 'new', 'linkcap', 'moveprodcat', 'changelink', 'preserveoldname', 'movesingercat', 'album'):
+      if option in ('chardisambig', 'moveprodcat', 'changelink', 'preserveoldname', 'movesingercat', 'album'):
         options[option] = True
       elif not value:
         pywikibot.input(f"Please enter a value for {arg}")

@@ -70,6 +70,8 @@ This is an assortment of bot scripts for bulk editing in the VOCALOID Lyrics Wik
 
 The script vlw_producerpages.py is used to update discography tables in the producer pages in the VOCALOID Lyrics Wiki in bulk.
 
+**Requires the file async_bot_wrapper.py to be placed in the same directory**
+
 <h4>Usage</h4>
 
 To update all pages in the category "Producers":
@@ -128,17 +130,17 @@ The script vlw_editlinks.py is used to update the internal wiki links and catego
 ### Moving producer category
 
 ```bat
-python pwb.py vlw_editlinks -moveprodcat -old:"foo" -new:"bar" [-changeprodredirect] [-keeplinkcap]
+python pwb.py vlw_editlinks -moveprodcat -old:"foo" -new:"bar" [-changelink] [-preserveoldname]
 ```
 
 Edit the category tag of the producer, from [[Category:foo songs list]] -> [[Category:bar songs list]]
 
-If this command is run with the optional flag `-changeprodredirect`, then the bot will also change the producer redirect links in the page.
+If this command is run with the optional flag `-changelink`, then the bot will also change the producer redirect links in the page.
 
     -old:"foo" -new:"bar":      [[foo]] -> [[bar]], [[Foo]] -> [[bar]]
     -old:"w1 w2" -new:"a1 a2":  [[w1 w2]] -> [[a1 a2]], [[w1_w2]] -> [[a1 a2]], [[W1 w2]] -> [[a1 a2]]
 
-If this command is also run with the optional flag `-keeplinkcap`, then the bot will keep the old name as the link text.
+If this command is also run with the optional flag `-preserveoldname`, then the bot will keep the old name as the link text.
 
     -old:"foo" -new:"bar":      [[foo]] -> [[bar|foo]]
 
@@ -149,10 +151,10 @@ General tips:
 
  - If you want to change the producer category tags and also change the producer links (usually to prevent double redirects), run...
     
-        python pwb.py vlw_editlinks -moveprodcat -old:"MATERU" -new:"MARETU" -changeprodredirect
-        python pwb.py vlw_editlinks -moveprodcat -old:"Hachi" -new:"Kenshi Yonezu" -changeprodredirect -keeplinkcap
+        python pwb.py vlw_editlinks -moveprodcat -old:"MATERU" -new:"MARETU" -changelink
+        python pwb.py vlw_editlinks -moveprodcat -old:"Hachi" -new:"Kenshi Yonezu" -changelink -preserveoldname
 
- - Usually `-changeprodredirect` is used to correct a mistyped producer's name and `-changeprodredirect -keeplinkcap` is used when the producer is undergoing a name change.
+ - Usually `-changelink` is used to correct a mistyped producer's name and `-changelink -preserveoldname` is used when the producer is undergoing a name change.
 
 ### Moving singer category
 
