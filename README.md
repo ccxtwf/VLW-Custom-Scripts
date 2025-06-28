@@ -3,29 +3,16 @@
 This is an assortment of bot scripts for bulk editing in the VOCALOID Lyrics Wiki.
 
 ## System Requirements
+### pywikibot scripts
  - Python 3.10+
- - Pywikibot 8.1+
+ - Pywikibot 8.1+ [Link](https://www.mediawiki.org/wiki/Manual:Pywikibot)
  - Installed python packages:
    - [pip install aiohttp](https://pypi.org/project/aiohttp/)
    - [pip install regex](https://pypi.org/project/regex/)
    - [pip install mwparserfromhell](https://pypi.org/project/mwparserfromhell/)
-
-## Table of Contents
-- [Custom Bot Scripts for Vocaloid Lyrics Wiki](#custom-bot-scripts-for-vocaloid-lyrics-wiki)
-  - [System Requirements](#system-requirements)
-  - [Table of Contents](#table-of-contents)
-  - [Installation \& Configuration](#installation--configuration)
-    - [Python](#python)
-    - [Pywikibot](#pywikibot)
-    - [Scripts](#scripts)
-  - [Producer Page Discography Auto-Updater](#producer-page-discography-auto-updater)
-  - [Producer Page Link Checker](#producer-page-link-checker)
-  - [Internal Wiki Link and Category Mover Bot](#internal-wiki-link-and-category-mover-bot)
-    - [Moving producer category](#moving-producer-category)
-    - [Moving singer category](#moving-singer-category)
-    - [Moving internal wiki links](#moving-internal-wiki-links)
-
-
+### mwn scripts
+ - Node.js v14+
+ - mwn v3.0+  [Link](https://www.npmjs.com/package/mwn)
 
 ## Installation & Configuration
 
@@ -50,82 +37,54 @@ This is an assortment of bot scripts for bulk editing in the VOCALOID Lyrics Wik
 ### Pywikibot
  - Download the latest stable version of Pywikibot from [Toolforge](https://pywikibot.toolforge.org).
  - Unzip the downloaded files to a folder of your own choosing. Open the command prompt and navigate to this folder.
- - Follow the steps detailed [here](https://www.mediawiki.org/wiki/Manual:Pywikibot/Installation#Configure_Pywikibot).
+ - Follow the steps detailed [on this page](https://www.mediawiki.org/wiki/Manual:Pywikibot/Installation#Configure_Pywikibot).
  - Finally run the following command to log in to your wiki:
 
   ```bat
   python pwb.py login
   ```
+ 
+ - To use the scripts:
+   - Download the scripts in this repository.
+   - Copy the Python files into the /scripts/userscripts sub-folder in your Pywikibot folder.
+   - To use each script, navigate to your Pywikibot directory and run the following command:
 
-### Scripts
- - Download the scripts in this repository.
- - Copy the Python files into the /scripts/userscripts sub-folder in your Pywikibot folder.
- - To use each script, navigate to your Pywikibot directory and run the following command:
+    ```bat
+    python pwb.py <name of script>
+    ```
 
-  ```bat
-  python pwb.py <name of script>
-  ```
+### Node.js
+ - Follow the steps detailed on [the official download page of Node.js](https://nodejs.org/en/download).
+ - You can check if Node.js is installed correctly by running the following command:
+ 
+ ```bat
+ node -v
+ ```
+
+### mwn
+ - Navigate to `mwn/` (or any other directory containing the mwn scripts and the file `package.json`). Run the command `npm install` to install the required Node.js packages.
+ - Configure your wiki account's authentication details by copying `.env.EXAMPLE` into `.env` and filling in the bot username & password.
+ - To run the mwn script, run the following command:
+ 
+ ```bat
+ node --env-file=.env <name of script>
+ ```
 
 ## Producer Page Discography Auto-Updater
 
-The script vlw_producerpages.py is used to update discography tables in the producer pages in the VOCALOID Lyrics Wiki in bulk.
-
-**Requires the file async_bot_wrapper.py to be placed in the same directory**
+The mwn script `producer_page_bot.js` (requires `producer_page_bot_utils.js`) is used to update discography tables in the producer pages in the VOCALOID Lyrics Wiki in bulk.
 
 <h4>Usage</h4>
 
 To update all pages in the category "Producers":
 
 ```bat
-python pwb.py vlw_producerpages
-```
-
-To update all pages in the category "Producers", starting from the given page title:
-
-```bat
-python pwb.py vlw_producerpages -from:<page_title>
-```
-
-To update only the given page:
-
-```bat
-python pwb.py vlw_producerpages -page:<page_title>
-```
-
-For testing of the bot. The global flag `-simulate` blocks all changes from being saved to the real wiki:
-
-```bat
-python pwb.py vlw_producerpages [options] -simulate
-```
-
-## Producer Page Link Checker
-
-The script vlw_producerpageslinks.py is used:
- - To check whether a link to each existing producer page has been added to their respective producer category pages.
-  
-   e.g. If the page `Category:Hachi songs list` does not yet link to the producer page `Hachi` (meaning that the `{{Producer}}` template in the category page does not yet contain a link to the producer page), then this bot will edit the `{{Producer}}` template to add this link.
-
- - To edit pages that redirect to the producer categories so they redirect to the producer pages instead.
-  
-   e.g. If a page is found that redirects to the category page `Category:Hachi songs list`, then this bot will edit the page so it redirects to the producer page `Hachi` instead.
-
-<h4>Usage</h4>
-
-To update all pages in the category "Producers":
-
-```bat
-python pwb.py vlw_producerpageslinks
-```
-
-To update all pages in the category "Producers", starting from the given page title:
-
-```bat
-python pwb.py vlw_producerpageslinks -from:<page_title>
+node --env-file=.env producer_page_bot.js
 ```
 
 ## Internal Wiki Link and Category Mover Bot
 
-The script vlw_editlinks.py is used to update the internal wiki links and category tags in the VOCALOID Lyrics Wiki.
+The pwikibot script `vlw_editlinks.py` is used to update the internal wiki links and category tags in the VOCALOID Lyrics Wiki.
 
 ### Moving producer category
 

@@ -1,0 +1,16 @@
+{
+  "name": "mwn-scripts",
+  "version": "0.0.1",
+  "main": "",
+  "scripts": {
+    "producer_pages": "node --env-file=.env producer_page_bot.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "jsdom": "^26.1.0",
+    "loadenv": "^2.2.0",
+    "mwn": "^3.0.1"
+  }
+}
