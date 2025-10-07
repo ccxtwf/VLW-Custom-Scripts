@@ -1,3 +1,6 @@
+import type { ApiParams, ApiResponse, ApiPage } from "mwn";
+import type { ApiParseParams } from 'types-mediawiki-api';
+
 const { JSDOM } = require("jsdom");
 
 const __rxProdCat = /\{\{\s*[Pp]rodLinks\s*\|([^\}\|]*)/;
@@ -7,7 +10,7 @@ const __rxAwtTable = /(?<head>{\|\s*class=[\"']sortable\s+producer-table[\"']\s*
 const __rxPwtRowTemplate = /(?:\|-[^\n]*\n[\s\u200B]*\|[\s\u200B]*)\{\{\s*[Pp][wh]t[ _]row\s*\|([^\n]*)\}\}(?=[\s\u200B]*\n)/gs;
 const __rxAwtRowTemplate = /(?:\|-[^\n]*\n[\s\u200B]*\|[\s\u200B]*)\{\{\s*[Aa]wt[ _]row\s*\|([^\n]*)\}\}(?=[\s\u200B]*\n)/gs;
 
-function parseDplOutputToList(output) {
+function parseDplOutputToList(output: string) {
   const dom = new JSDOM(output);
   const res = ((dom.window.document.querySelector('div.mw-parser-output > p') || {}).innerHTML || '').trim();
   if (res === '') return [];
@@ -15,10 +18,10 @@ function parseDplOutputToList(output) {
   pages.pop();
   return pages;
 }
-function detonePinyin(text) {
+function detonePinyin(text: string) {
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
-function parseRomajiPortion(title, forAlbum) {
+function parseRomajiPortion(title: string, forAlbum: boolean) {
   let extractedRomaji = title;
   if (forAlbum) {
     extractedRomaji = extractedRomaji.replace(/ \(album\)$/, '');
@@ -39,20 +42,20 @@ function parseRomajiPortion(title, forAlbum) {
   }
   return extractedRomaji;
 }
-function getSortedValue(pwt_template_input, forAlbum = false) {
-  let pageTitle = pwt_template_input.match(/^[^\|]*/)[0];
+function getSortedValue(pwtTemplateInput: string, forAlbum: boolean = false) {
+  let pageTitle = pwtTemplateInput.match(/^[^\|]*/)![0];
   pageTitle = pageTitle.replace(/^\s*1\s*=\s*/, '').replaceAll(/\{\{=\}\}/g, '=');
   let romTitle = parseRomajiPortion(pageTitle, forAlbum);
-  let miscParams = pwt_template_input.replace(pageTitle, "");
+  let miscParams = pwtTemplateInput.replace(pageTitle, "");
 
   // Deduce manual romanization
-  let manualKanji = miscParams.match(/\|kanji\s*=\s*([^\|]*)/);
-  if (manualKanji === null) {
-    manualKanji = miscParams.match(/\|(?<!\s*\w+\s*=\s*)([^\|]*)/);
+  let manualKanjiMatch = miscParams.match(/\|kanji\s*=\s*([^\|]*)/);
+  if (manualKanjiMatch === null) {
+    manualKanjiMatch = miscParams.match(/\|(?<!\s*\w+\s*=\s*)([^\|]*)/);
   }
-  manualKanji = manualKanji === null ? '' : manualKanji[1];
-  let manualRom = miscParams.match(/\|rom\s*=\s*([^\|]*)/);
-  manualRom = manualRom === null ? '' : manualRom[1];
+  let manualKanji = manualKanjiMatch === null ? '' : manualKanjiMatch[1];
+  let manualRomMatch = miscParams.match(/\|rom\s*=\s*([^\|]*)/);
+  let manualRom = manualRomMatch === null ? '' : manualRomMatch[1];
   if (manualRom !== '') { romTitle = manualRom; }
 
   //Finishing operations
@@ -63,58 +66,76 @@ function getSortedValue(pwt_template_input, forAlbum = false) {
   return romTitle;
 }
 
-const producerPageBotMixin = {
-  getProducerCategory(pageContents) {
+interface ProducerPageBotMixin {
+  continuedQuery?: ((query?: ApiParams, limit?: number) => Promise<ApiResponse[]>)
+  continuedQueryGen?: ((query?: ApiParams, limit?: number) => AsyncGenerator<ApiResponse>)
+  parseWikitext?: ((content: string, additionalParams?: ApiParseParams) => Promise<string>)
+
+  getProducerCategory: (pageContents: string) => string
+  filterPagesThatHaveBeenTranscludedUsingRedirects: (pages: string[], prodPageTitle: string, forAlbums?: boolean) => Promise<string[] | [string, boolean][]>
+  getSongPagesNotOnPage: (prodCat: string, prodPageTitle: string) => Promise<string[]>
+  getAlbumPagesNotOnPage: (prodCat: string, prodPageTitle: string) => Promise<[string, boolean][]>
+  updatePwt: (pageContents: string, missingSongs: string[]) => string
+  updateAwt: (pageContents: string, missingAlbums: [string, boolean][]) => string
+}
+
+const producerPageBotMixin: ProducerPageBotMixin = {
+  getProducerCategory(pageContents: string) {
     const m = pageContents.match(__rxProdCat);
     if (m === null) throw { error: "Cannot find {{ProdLinks}}" };
     return m[1].trim().replace(__rxProdCatParam, '');
   },
-  async filterPagesThatHaveBeenTranscludedUsingRedirects(pages, prodPageTitle, forAlbums = false) {
+  async filterPagesThatHaveBeenTranscludedUsingRedirects(pages: string[], prodPageTitle: string, forAlbums: boolean = false) {
     if (pages.length === 0) {
       return pages;   // nothing to filter
     }
     const res = [];
-    const q = await this.continuedQuery({
+    const params: ApiParams = {
       action: 'query',
       format: 'json',
       prop: forAlbums ? 'transcludedin|categories' : 'transcludedin',
       titles: pages, 
       tinamespace: 0,
-      tilimit: 500,
-      clcategories: forAlbums ? 'Category:Compilation albums' : undefined
-    });
+      tilimit: 500
+    };
+    if (forAlbums) {
+      params.clcategories = 'Category:Compilation albums';
+    }
+    const q = await this.continuedQuery!(params);
     for await (let json of q) {
-      const untranscludedPages = json.query.pages.filter((page) => {
-        return (page.transcludedin || []).every(({title}) => title !== prodPageTitle);
-      }).map(({ title, categories = [] }) => {
-        if (forAlbums) {
-          return [ title, categories.length > 0 ];
-        } else {
-          return title;
-        }
-      });
+      const untranscludedPages = json.query!.pages
+        .filter((page: ApiPage) => {
+          return (page.transcludedin || []).every(({ title }) => title !== prodPageTitle);
+        })
+        .map(({ title, categories = [] }: ApiPage) => {
+          if (forAlbums) {
+            return [ title, categories.length > 0 ];
+          } else {
+            return title;
+          }
+        });
       res.push(...untranscludedPages);
     }
     return res;
   },
-  async getSongPagesNotOnPage(prodCat, prodPageTitle) {
+  async getSongPagesNotOnPage(prodCat: string, prodPageTitle: string) {
     const q = `{{#dpl:|categorymatch=${prodCat.replaceAll(/%/g, '\\%').replaceAll(/_/g, '\\_')} songs list%|notcategory=${prodCat} songs list/Albums|notlinksfrom=${prodPageTitle}|namespace=|format=,%TITLE%,{{!}}{{!}},}}`;
-    const res = await this.parseWikitext(q);
+    const res = await this.parseWikitext!(q);
     const pages = await this.filterPagesThatHaveBeenTranscludedUsingRedirects(
       parseDplOutputToList(res), prodPageTitle
     )
-    return pages;
+    return (pages as string[]);
   },
-  async getAlbumPagesNotOnPage(prodCat, prodPageTitle) {
+  async getAlbumPagesNotOnPage(prodCat: string, prodPageTitle: string) {
     const q = `{{#dpl:|category=${prodCat} songs list/Albums|notlinksfrom=${prodPageTitle}|namespace=|format=,%TITLE%,{{!}}{{!}},}}`;
-    const res = await this.parseWikitext(q);
+    const res = await this.parseWikitext!(q);
     const pages = await this.filterPagesThatHaveBeenTranscludedUsingRedirects(
       parseDplOutputToList(res), prodPageTitle, true
     )
-    return pages;
+    return (pages as [string, boolean][]);
   },
 
-  updatePwt(pageContents, missingSongs) {
+  updatePwt(pageContents: string, missingSongs: string[]) {
     if (missingSongs.length === 0) {
       return pageContents;
     }
@@ -127,7 +148,7 @@ const producerPageBotMixin = {
     }
     const pwtTableWikitext = pwtTables[0][0];
 
-    const extractMatchProperties = (m) => { return {
+    const extractMatchProperties = (m: RegExpExecArray) => { return {
       fullmatch: m[0],
       input: m[1],
       sortValue: getSortedValue(m[1]),
@@ -147,16 +168,16 @@ const producerPageBotMixin = {
       pwtSongs.splice(addToIndex, 0, { fullmatch: pwtTemplate, input: missingSong, sortValue });
     }
 
-    let newPwtTableWikitext = pwtTables[0].groups['head'] + pwtSongs.map((m) => m.fullmatch).join('\n') + '\n|}';
+    let newPwtTableWikitext = pwtTables[0]!.groups!['head'] + pwtSongs.map((m) => m.fullmatch).join('\n') + '\n|}';
     return pageContents.replace(pwtTableWikitext, newPwtTableWikitext);
   },
   
-  updateAwt(pageContents, missingAlbums) {
+  updateAwt(pageContents: string, missingAlbums: [string, boolean][]) {
     if (missingAlbums.length === 0) {
       return pageContents;
     }
     const awtTables = Array.from(pageContents.matchAll(__rxAwtTable));
-    const extractMatchProperties = (m) => { return {
+    const extractMatchProperties = (m: RegExpExecArray) => { return {
       fullmatch: m[0],
       input: m[1],
       sortValue: getSortedValue(m[1], true),
@@ -171,8 +192,8 @@ const producerPageBotMixin = {
 
     switch (awtTables.length) {
       case 0:
-        missingAlbums = missingAlbums.map((a) => a[0]);
-        missingAlbums = missingAlbums.sort((a, b) => {
+        let missingAlbumNames = missingAlbums.map((a) => a[0]);
+        missingAlbumNames = missingAlbumNames.sort((a, b) => {
           if (getSortedValue(a, true) < getSortedValue(b, true)) {
             return -1;
           }
@@ -182,7 +203,7 @@ const producerPageBotMixin = {
           return 0;
         })
         newAwtTableWikitext = `==Discography==\n{| class=\"sortable producer-table\"\n|- class=\"vcolor-default\"\n! {{awt head}}\n`;
-        newAwtTableWikitext += missingAlbums.map((s) => {
+        newAwtTableWikitext += missingAlbumNames.map((s) => {
           return `|-\n| {{awt row|${s}}}`;
         });
         newAwtTableWikitext += "\n|}\n\n";
@@ -208,7 +229,7 @@ const producerPageBotMixin = {
           }
           awtAlbums.splice(addToIndex, 0, { fullmatch: awtTemplate, input: missingAlbum, sortValue });
         }
-        newAwtTableWikitext = awtTables[0].groups['head'] + awtAlbums.map((m) => m.fullmatch).join('\n') + '\n|}';
+        newAwtTableWikitext = awtTables![0].groups!['head'] + awtAlbums.map((m) => m.fullmatch).join('\n') + '\n|}';
         return pageContents.replace(awtTableWikitext, newAwtTableWikitext);
       default:
         awtTableWikitext = awtTables[0][0];
@@ -228,8 +249,8 @@ const producerPageBotMixin = {
           }
           searchInTable.splice(addToIndex, 0, { fullmatch: awtTemplate, input: missingAlbum, sortValue });
         }
-        newAwtTableWikitext = awtTables[0].groups['head'] + awtAlbums.map((m) => m.fullmatch).join('\n') + '\n|}';
-        newAwtTableWikitextCompilations = awtTables[1].groups['head'] + awtCompilationAlbums.map((m) => m.fullmatch).join('\n') + '\n|}';
+        newAwtTableWikitext = awtTables![0].groups!['head'] + awtAlbums.map((m) => m.fullmatch).join('\n') + '\n|}';
+        newAwtTableWikitextCompilations = awtTables![1].groups!['head'] + awtCompilationAlbums.map((m) => m.fullmatch).join('\n') + '\n|}';
         pageContents = pageContents.replace(awtTableWikitext, newAwtTableWikitext);
         pageContents = pageContents.replace(awtTableWikitextCompilations, newAwtTableWikitextCompilations);
         return pageContents;
