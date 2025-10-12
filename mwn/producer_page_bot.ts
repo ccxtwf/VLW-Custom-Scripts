@@ -1,14 +1,19 @@
-require('loadenv')();
-var argv = require('minimist')(process.argv.slice(2));
+import "dotenv/config";
+import minimist from "minimist";
 
-const { Mwn, ApiResponse, ApiPage, MwnOptions } = require("mwn");
-const http = require("http");
-const https = require("https");
-const axios = require("axios");
+var argv = minimist(process.argv.slice(2));
 
-const { producerPageBotMixin } = require("./producer_page_bot_utils.ts");
+import { Mwn } from "mwn";
+import type { ApiResponse, ApiPage, MwnOptions } from "mwn";
+import http from "http";
+import https from "https";
+import axios from "axios";
+import fs from "fs";
 
-const producersWithDiscographySubpages = require('./producers_with_split_discographies.json');
+import { producerPageBotMixin } from "./producer_page_bot_utils.ts";
+import type { IProducerPageBotMixin } from "./producer_page_bot_utils.ts";
+
+const producersWithDiscographySubpages = JSON.parse(fs.readFileSync("./producers_with_split_discographies.json", { encoding: 'utf-8', flag: 'r' }));
 
 const EDIT_SUMMARY = 'Bot: Updating producer page discography';
 
@@ -20,7 +25,7 @@ interface IProducerPageBotCliOptions {
 
 interface IProducerPagesWithDiscogSubpages {
   [producerPageTitle: string]: {
-    subpage: string[]
+    subpages: string[]
   }
 }
 
@@ -43,7 +48,7 @@ class ProducerPageBot extends Mwn {
   userOptions: IProducerPageBotCliOptions
   errorPages: [string, string][]
 
-  constructor(options: typeof MwnOptions, config: IProducerPageConfig, cliOptions: IProducerPageBotCliOptions) {
+  constructor(options: MwnOptions, config: IProducerPageConfig, cliOptions: IProducerPageBotCliOptions) {
     super(options);
     this.editSummary = config.editSummary;
     this.producerPagesWithDiscogSubpages = config.producerPagesWithDiscogSubpages;
@@ -51,7 +56,15 @@ class ProducerPageBot extends Mwn {
     this.errorPages = [];
   }
 
-  async treatPage({ title, revisions }: typeof ApiPage): Promise<void> {
+  /* Implemented by producerPageBotMixin */
+  getProducerCategory = (producerPageBotMixin as IProducerPageBotMixin).getProducerCategory;
+  filterPagesThatHaveBeenTranscludedUsingRedirects = (producerPageBotMixin as IProducerPageBotMixin).filterPagesThatHaveBeenTranscludedUsingRedirects;
+  getSongPagesNotOnPage = (producerPageBotMixin as IProducerPageBotMixin).getSongPagesNotOnPage;
+  getAlbumPagesNotOnPage = (producerPageBotMixin as IProducerPageBotMixin).getAlbumPagesNotOnPage;
+  updatePwt = (producerPageBotMixin as IProducerPageBotMixin).updatePwt;
+  updateAwt = (producerPageBotMixin as IProducerPageBotMixin).updateAwt;
+
+  async treatPage(this: ProducerPageBot, { title, revisions }: ApiPage): Promise<void> {
     try {
       if (title in producersWithDiscographySubpages) {
         // TODO
@@ -92,7 +105,7 @@ class ProducerPageBot extends Mwn {
     }
   }
 
-  generateReport(): void {
+  generateReport(this: ProducerPageBot): void {
     if (this.errorPages.length > 0) {
       Mwn.log(`[I] Encountered errors with the following pages:`);
       for (let [page, message] of this.errorPages) {
@@ -102,19 +115,19 @@ class ProducerPageBot extends Mwn {
     Mwn.log(`[S] Finished bot run`);
   }
 
-  async run(): Promise<void> {
+  async run(this: ProducerPageBot): Promise<void> {
     if (this.userOptions["dry-run"]) {
       Mwn.log(`[I] Running the producer page bot as a simulation. No live changes will be made on the wiki.`);
     }
     if (this.userOptions.page !== undefined) {
       const title = argv['page'];
       this.read(title, { rvprop: ['content'] })
-        .then((page: typeof ApiResponse) => this.treatPage(page))
+        .then((page: ApiPage) => this.treatPage(page))
         .catch((err: any) => {
           Mwn.log(`[E] ${title}:\t\t${err.error || err}`);
         });
     } else {
-      const pagesInCategory = this.continuedQueryGen!({
+      const pagesInCategory = this.continuedQueryGen({
         action: 'query',
         format: 'json',
         generator: 'categorymembers',
@@ -129,7 +142,7 @@ class ProducerPageBot extends Mwn {
         rvprop: 'content',
         rvslots: '*'
       });
-      for await (let json of pagesInCategory as AsyncGenerator<typeof ApiResponse>) {
+      for await (let json of pagesInCategory as AsyncGenerator<ApiResponse>) {
         for (const page of json.query!.pages) {
           await this.treatPage(page);
         }
@@ -137,8 +150,6 @@ class ProducerPageBot extends Mwn {
     }
   }
 }
-Object.assign(ProducerPageBot.prototype, producerPageBotMixin);
-
 
 async function initBot() {
   const cliOptions = parseArguments();
@@ -156,7 +167,7 @@ async function initBot() {
     }
   }, { 
     editSummary: EDIT_SUMMARY, 
-    producerPagesWithDiscogSubpages: producersWithDiscographySubpages 
+    producerPagesWithDiscogSubpages: producersWithDiscographySubpages as IProducerPagesWithDiscogSubpages
   }, cliOptions);
 
   // Binding
@@ -169,7 +180,7 @@ async function initBot() {
 
   if (process.env.ENV_REJECT_UNAUTHORIZED === '0') {
     console.log("Setting HTTP Request Agent to not reject unauthorized requests. Do not do this on a production environment.");
-    const httpAgent = new http.Agent({ keepAlive: true, rejectUnauthorized: false });
+    const httpAgent = new http.Agent({ keepAlive: true });
     const httpsAgent = new https.Agent({ keepAlive: true, rejectUnauthorized: false });
     axios.defaults.httpAgent = httpAgent;
     axios.defaults.httpsAgent = httpsAgent;

@@ -1,7 +1,7 @@
 import type { ApiParams, ApiResponse, ApiPage } from "mwn";
 import type { ApiParseParams } from 'types-mediawiki-api';
 
-const { JSDOM } = require("jsdom");
+import { JSDOM } from "jsdom";
 
 const __rxProdCat = /\{\{\s*[Pp]rodLinks\s*\|([^\}\|]*)/;
 const __rxProdCatParam = /\s*\b(catname|1)\b\s*=\s*/;
@@ -10,7 +10,7 @@ const __rxAwtTable = /(?<head>{\|\s*class=[\"']sortable\s+producer-table[\"']\s*
 const __rxPwtRowTemplate = /(?:\|-[^\n]*\n[\s\u200B]*\|[\s\u200B]*)\{\{\s*[Pp][wh]t[ _]row\s*\|([^\n]*)\}\}(?=[\s\u200B]*\n)/gs;
 const __rxAwtRowTemplate = /(?:\|-[^\n]*\n[\s\u200B]*\|[\s\u200B]*)\{\{\s*[Aa]wt[ _]row\s*\|([^\n]*)\}\}(?=[\s\u200B]*\n)/gs;
 
-function parseDplOutputToList(output: string) {
+function parseDplOutputToList(output: string): string[] {
   const dom = new JSDOM(output);
   const res = ((dom.window.document.querySelector('div.mw-parser-output > p') || {}).innerHTML || '').trim();
   if (res === '') return [];
@@ -18,10 +18,10 @@ function parseDplOutputToList(output: string) {
   pages.pop();
   return pages;
 }
-function detonePinyin(text: string) {
+function detonePinyin(text: string): string {
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
-function parseRomajiPortion(title: string, forAlbum: boolean) {
+function parseRomajiPortion(title: string, forAlbum: boolean): string {
   let extractedRomaji = title;
   if (forAlbum) {
     extractedRomaji = extractedRomaji.replace(/ \(album\)$/, '');
@@ -42,7 +42,7 @@ function parseRomajiPortion(title: string, forAlbum: boolean) {
   }
   return extractedRomaji;
 }
-function getSortedValue(pwtTemplateInput: string, forAlbum: boolean = false) {
+function getSortedValue(pwtTemplateInput: string, forAlbum: boolean = false): string {
   let pageTitle = pwtTemplateInput.match(/^[^\|]*/)![0];
   pageTitle = pageTitle.replace(/^\s*1\s*=\s*/, '').replaceAll(/\{\{=\}\}/g, '=');
   let romTitle = parseRomajiPortion(pageTitle, forAlbum);
@@ -66,11 +66,13 @@ function getSortedValue(pwtTemplateInput: string, forAlbum: boolean = false) {
   return romTitle;
 }
 
-interface ProducerPageBotMixin {
+export interface IProducerPageBotMixin {
+  /* Inherited from Mwn */
   continuedQuery?: ((query?: ApiParams, limit?: number) => Promise<ApiResponse[]>)
   continuedQueryGen?: ((query?: ApiParams, limit?: number) => AsyncGenerator<ApiResponse>)
   parseWikitext?: ((content: string, additionalParams?: ApiParseParams) => Promise<string>)
 
+  /* Custom methods */
   getProducerCategory: (pageContents: string) => string
   filterPagesThatHaveBeenTranscludedUsingRedirects: (pages: string[], prodPageTitle: string, forAlbums?: boolean) => Promise<string[] | [string, boolean][]>
   getSongPagesNotOnPage: (prodCat: string, prodPageTitle: string) => Promise<string[]>
@@ -79,13 +81,13 @@ interface ProducerPageBotMixin {
   updateAwt: (pageContents: string, missingAlbums: [string, boolean][]) => string
 }
 
-const producerPageBotMixin: ProducerPageBotMixin = {
-  getProducerCategory(pageContents: string) {
+export const producerPageBotMixin: IProducerPageBotMixin = {
+  getProducerCategory(this: IProducerPageBotMixin, pageContents: string) {
     const m = pageContents.match(__rxProdCat);
     if (m === null) throw { error: "Cannot find {{ProdLinks}}" };
     return m[1].trim().replace(__rxProdCatParam, '');
   },
-  async filterPagesThatHaveBeenTranscludedUsingRedirects(pages: string[], prodPageTitle: string, forAlbums: boolean = false) {
+  async filterPagesThatHaveBeenTranscludedUsingRedirects(this: IProducerPageBotMixin, pages: string[], prodPageTitle: string, forAlbums: boolean = false) {
     if (pages.length === 0) {
       return pages;   // nothing to filter
     }
@@ -118,24 +120,26 @@ const producerPageBotMixin: ProducerPageBotMixin = {
     }
     return res;
   },
-  async getSongPagesNotOnPage(prodCat: string, prodPageTitle: string) {
-    const q = `{{#dpl:|categorymatch=${prodCat.replaceAll(/%/g, '\\%').replaceAll(/_/g, '\\_')} songs list%|notcategory=${prodCat} songs list/Albums|notlinksfrom=${prodPageTitle}|namespace=|format=,%TITLE%,{{!}}{{!}},}}`;
+  async getSongPagesNotOnPage(this: IProducerPageBotMixin, prodCat: string, prodPageTitle: string) {
+    prodCat = prodCat.replaceAll(/%/g, '\\%').replaceAll(/_/g, '\\_');
+    const q = `{{#dpl:|categorymatch=${prodCat} songs list%|notcategory=${prodCat} songs list/Albums|notlinksfrom=${prodPageTitle}|namespace=|format=,%TITLE%,{{!}}{{!}},}}`;
     const res = await this.parseWikitext!(q);
     const pages = await this.filterPagesThatHaveBeenTranscludedUsingRedirects(
       parseDplOutputToList(res), prodPageTitle
-    )
+    );
     return (pages as string[]);
   },
-  async getAlbumPagesNotOnPage(prodCat: string, prodPageTitle: string) {
+  async getAlbumPagesNotOnPage(this: IProducerPageBotMixin, prodCat: string, prodPageTitle: string) {
+    prodCat = prodCat.replaceAll(/%/g, '\\%').replaceAll(/_/g, '\\_');
     const q = `{{#dpl:|category=${prodCat} songs list/Albums|notlinksfrom=${prodPageTitle}|namespace=|format=,%TITLE%,{{!}}{{!}},}}`;
     const res = await this.parseWikitext!(q);
     const pages = await this.filterPagesThatHaveBeenTranscludedUsingRedirects(
       parseDplOutputToList(res), prodPageTitle, true
-    )
+    );
     return (pages as [string, boolean][]);
   },
 
-  updatePwt(pageContents: string, missingSongs: string[]) {
+  updatePwt(this: IProducerPageBotMixin, pageContents: string, missingSongs: string[]) {
     if (missingSongs.length === 0) {
       return pageContents;
     }
@@ -172,7 +176,7 @@ const producerPageBotMixin: ProducerPageBotMixin = {
     return pageContents.replace(pwtTableWikitext, newPwtTableWikitext);
   },
   
-  updateAwt(pageContents: string, missingAlbums: [string, boolean][]) {
+  updateAwt(this: IProducerPageBotMixin, pageContents: string, missingAlbums: [string, boolean][]) {
     if (missingAlbums.length === 0) {
       return pageContents;
     }
@@ -257,5 +261,3 @@ const producerPageBotMixin: ProducerPageBotMixin = {
     }
   }
 }
-
-module.exports = { producerPageBotMixin }
