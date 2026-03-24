@@ -7,7 +7,6 @@ import https from "https";
 import axios from "axios";
 import { writeFile } from "fs/promises";
 import { styleText } from "util";
-import { sleep } from "mwn/build/utils";
 // import { styleText } from "util";
 
 const folderDir = process.env.EXPORT_DUMP_TO_DIRECTORY || __dirname;
@@ -63,8 +62,8 @@ async function nullEditSinglePage(bot: Mwn, pageid: number, title: string) {
   } catch (err) {
     const errorCode = err?.response?.data?.error?.code; 
     if (errorCode === 'ratelimited') {
-      console.log(styleText('magenta', 'Rate limited. Sleeping for 60000 ms...'));
-      await bot.sleep(60000);
+      console.log(styleText('magenta', 'Rate limited. Sleeping for 5000 ms...'));
+      await bot.sleep(5000);
       await nullEditSinglePage(bot, pageid, title);
     } else if (errorCode === 'protectedpage') {
       console.log(styleText('red', `"${title}" is protected.`));
@@ -100,7 +99,7 @@ async function main() {
     // arvend: '2026-02-17T00:00:00Z',
   });
 
-  const writeToFilename = `${folderDir}/list-null-edit.txt`;
+  const writeToFilename = `${folderDir}/list-null-edit.log`;
   await writeFile(writeToFilename, '', { flag: 'w', encoding: 'utf-8' });
 
   for await (let json of pagesInCategory as AsyncGenerator<ApiResponse>) {
@@ -112,7 +111,7 @@ async function main() {
     const saveTitles = [];
     for (const { pageid, title } of pages) {
       await nullEditSinglePage(bot, pageid, title);
-      await sleep(EDIT_RATE_PER_MILLISECONDS);
+      await bot.sleep(EDIT_RATE_PER_MILLISECONDS);
       saveTitles.push(title);
     }
     await writeFile(writeToFilename, saveTitles.join('\n') + '\n', { flag: 'a', encoding: 'utf-8' });
