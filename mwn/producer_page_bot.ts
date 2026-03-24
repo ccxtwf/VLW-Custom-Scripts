@@ -57,12 +57,12 @@ class ProducerPageBot extends Mwn {
   }
 
   /* Implemented by producerPageBotMixin */
-  getProducerCategory = (producerPageBotMixin as IProducerPageBotMixin).getProducerCategory;
-  filterPagesThatHaveBeenTranscludedUsingRedirects = (producerPageBotMixin as IProducerPageBotMixin).filterPagesThatHaveBeenTranscludedUsingRedirects;
-  getSongPagesNotOnPage = (producerPageBotMixin as IProducerPageBotMixin).getSongPagesNotOnPage;
-  getAlbumPagesNotOnPage = (producerPageBotMixin as IProducerPageBotMixin).getAlbumPagesNotOnPage;
-  updatePwt = (producerPageBotMixin as IProducerPageBotMixin).updatePwt;
-  updateAwt = (producerPageBotMixin as IProducerPageBotMixin).updateAwt;
+  getProducerCategory = (producerPageBotMixin as IProducerPageBotMixin).getProducerCategory.bind(this);
+  filterPagesThatHaveBeenTranscludedUsingRedirects = (producerPageBotMixin as IProducerPageBotMixin).filterPagesThatHaveBeenTranscludedUsingRedirects.bind(this);
+  getSongPagesNotOnPage = (producerPageBotMixin as IProducerPageBotMixin).getSongPagesNotOnPage.bind(this);
+  getAlbumPagesNotOnPage = (producerPageBotMixin as IProducerPageBotMixin).getAlbumPagesNotOnPage.bind(this);
+  updatePwt = (producerPageBotMixin as IProducerPageBotMixin).updatePwt.bind(this);
+  updateAwt = (producerPageBotMixin as IProducerPageBotMixin).updateAwt.bind(this);
 
   async treatPage(this: ProducerPageBot, { title, revisions }: ApiPage): Promise<void> {
     try {
@@ -143,6 +143,11 @@ class ProducerPageBot extends Mwn {
         rvslots: '*'
       });
       for await (let json of pagesInCategory as AsyncGenerator<ApiResponse>) {
+        if (!json?.query?.pages) {
+          Mwn.log(`[E] Got unexpected response from the API`);
+          Mwn.log(json);
+          continue;
+        }
         for (const page of json.query!.pages) {
           await this.treatPage(page);
         }
@@ -169,14 +174,6 @@ async function initBot() {
     editSummary: EDIT_SUMMARY, 
     producerPagesWithDiscogSubpages: producersWithDiscographySubpages as IProducerPagesWithDiscogSubpages
   }, cliOptions);
-
-  // Binding
-  bot.getProducerCategory.bind(bot);
-  bot.filterPagesThatHaveBeenTranscludedUsingRedirects.bind(bot);
-  bot.getSongPagesNotOnPage.bind(bot);
-  bot.getAlbumPagesNotOnPage.bind(bot);
-  bot.updatePwt.bind(bot);
-  bot.updateAwt.bind(bot);
 
   if (process.env.ENV_REJECT_UNAUTHORIZED === '0') {
     console.log("Setting HTTP Request Agent to not reject unauthorized requests. Do not do this on a production environment.");
