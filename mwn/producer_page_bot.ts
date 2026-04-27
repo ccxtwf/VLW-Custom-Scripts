@@ -1,7 +1,7 @@
 import "dotenv/config";
 import minimist from "minimist";
 
-var argv = minimist(process.argv.slice(2));
+const argv = minimist(process.argv.slice(2));
 
 import { Mwn } from "mwn";
 import type { ApiResponse, ApiPage, MwnOptions } from "mwn";

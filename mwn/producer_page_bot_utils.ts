@@ -121,8 +121,8 @@ export const producerPageBotMixin: IProducerPageBotMixin = {
     return res;
   },
   async getSongPagesNotOnPage(this: IProducerPageBotMixin, prodCat: string, prodPageTitle: string) {
-    prodCat = prodCat.replaceAll(/%/g, '\\%').replaceAll(/_/g, '\\_');
-    const q = `{{#dpl:|categorymatch=${prodCat} songs list%|notcategory=${prodCat} songs list/Albums|notlinksfrom=${prodPageTitle}|namespace=|format=,%TITLE%,{{!}}{{!}},}}`;
+    const mProdCat = prodCat.replaceAll(/_/g, ' ').replaceAll(/%/g, '\\%');
+    const q = `{{#dpl:|categorymatch=${mProdCat} songs list%|notcategory=${prodCat} songs list/Albums|notlinksfrom=${prodPageTitle}|namespace=|format=,%TITLE%,{{!}}{{!}},}}`;
     const res = await this.parseWikitext!(q);
     const pages = await this.filterPagesThatHaveBeenTranscludedUsingRedirects(
       parseDplOutputToList(res), prodPageTitle
@@ -130,7 +130,6 @@ export const producerPageBotMixin: IProducerPageBotMixin = {
     return (pages as string[]);
   },
   async getAlbumPagesNotOnPage(this: IProducerPageBotMixin, prodCat: string, prodPageTitle: string) {
-    prodCat = prodCat.replaceAll(/%/g, '\\%').replaceAll(/_/g, '\\_');
     const q = `{{#dpl:|category=${prodCat} songs list/Albums|notlinksfrom=${prodPageTitle}|namespace=|format=,%TITLE%,{{!}}{{!}},}}`;
     const res = await this.parseWikitext!(q);
     const pages = await this.filterPagesThatHaveBeenTranscludedUsingRedirects(
