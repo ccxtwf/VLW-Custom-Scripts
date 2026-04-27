@@ -1,4 +1,12 @@
 node_modules/
+apicache/
+logs/
 .env
 
-*.txt
+__pycache__
+pywikibot/throttle.ctrl
+pywikibot/user-config.py
+pywikibot/user-password.py
+pywikibot/*.lwp
+
+mwn/profiles.json

@@ -1,0 +1,11 @@
+{
+  "live": {
+    "apiEntrypoint": "https://vocaloidlyrics.miraheze.org/w/api.php",
+    "botUsername": "<USER NAME>@<BOT NAME>",
+    "botPassword": "...",
+    "botUseragent": "..."
+  },
+  "wiki2": {
+    ...
+  }
+}
