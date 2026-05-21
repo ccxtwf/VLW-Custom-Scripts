@@ -7,6 +7,7 @@ const argv = minimist(process.argv.slice(2));
 
 import { Mwn } from "mwn";
 import type { ApiResponse } from "mwn";
+import { integratedLogin } from "./util.ts";
 import { styleText } from "util";
 
 import { readWikiProfiles } from "./util.ts";
@@ -42,11 +43,14 @@ function parseArguments(): ITemplateSyncerCliOptions {
   return options;
 }
 
+
+
 async function initBot(profile: WikiProfile, asSource: boolean) {
   const mwnConfig = deepmerge({
     apiUrl: profile.apiEntrypoint,
     username: profile.botUsername,
     password: profile.botPassword,
+    OAuth2AccessToken: profile.oauthToken,
     userAgent: profile.botUseragent,
     silent: true,       // suppress messages (except error messages)
     retryPause: 5000,   // pause for 5000 milliseconds (5 seconds) on maxlag error.
@@ -54,11 +58,7 @@ async function initBot(profile: WikiProfile, asSource: boolean) {
   }, profile.miscConfig || {});
   const bot = new Mwn(mwnConfig);
   Mwn.log(`Logging into ${profile.apiEntrypoint} as ${profile.botUsername} [AS ${asSource ? 'SOURCE' : 'TARGET'}]`);
-  await bot.login({
-    apiUrl: profile.apiEntrypoint,
-    username: profile.botUsername,
-    password: profile.botPassword,
-  });
+  await integratedLogin(bot);
   return bot;
 }
 
@@ -141,12 +141,12 @@ async function run(copyFromWikiBot: Mwn, copyToWikiBot: Mwn, args: ITemplateSync
 async function main() {
   const wikiProfiles = readWikiProfiles();
   if (wikiProfiles === null) {
-    console.log(styleText('red', 'Failed to read profiles.json in the working directory!'));
+    Mwn.log('Failed to read profiles.json in the working directory!');
     return;
   }
   const args = parseArguments();
   if (!wikiProfiles[args.from] || !wikiProfiles[args.to]) {
-    console.log(styleText('red', ''));
+    Mwn.log('You must specify the source & target wikis!');
     return;
   }
 

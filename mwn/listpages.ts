@@ -6,12 +6,14 @@ import http from "http";
 import https from "https";
 import axios from "axios";
 import { writeFile } from "fs/promises";
+import { integratedLogin } from "./util";
 
 async function initBot() {
   const bot = new Mwn({
     apiUrl: process.env.WIKI_API_URL,
     username: process.env.BOT_USERNAME,
     password: process.env.BOT_PASSWORD,
+    OAuth2AccessToken: process.env.BOT_OAUTH_ACCESS_TOKEN,
     userAgent: process.env.BOT_USERAGENT,
     silent: true,       // suppress messages (except error messages)
     retryPause: 5000,   // pause for 5000 milliseconds (5 seconds) on maxlag error.
@@ -30,12 +32,8 @@ async function initBot() {
     bot.setRequestOptions({ httpAgent, httpsAgent });
   }
 
-  Mwn.log(`Logging into ${process.env.WIKI_API_URL} as ${process.env.BOT_USERNAME}`);
-  await bot.login({
-    apiUrl: process.env.WIKI_API_URL,
-    username: process.env.BOT_USERNAME,
-    password: process.env.BOT_PASSWORD,
-  });
+  await integratedLogin(bot);
+  
   return bot;
 }
 
