@@ -116,25 +116,32 @@ async function run(copyFromWikiBot: Mwn, copyToWikiBot: Mwn, args: ITemplateSync
       return [pagelist, cache];
     })();
     
-    copyToWikiBot.batchOperation(
+    await copyToWikiBot.batchOperation(
       pagelist,
       async (title) => {
-        const { revisions } = pagecache[title] as PageObject;
-        const { content } = revisions[0];
-        Mwn.log(`Editing '${title}'...`);
-        await copyToWikiBot.save(title, content, args.comment || 'Copying templates', { minor: false });
-        Mwn.log(`Saved '${title}'`);
-        // await copyToWikiBot.sleep(THROTTLE);
+        try {
+          const { revisions } = pagecache[title] as PageObject;
+          const { content } = revisions[0];
+          Mwn.log(`Editing '${title}'...`);
+          await copyToWikiBot.save(title, content, args.comment || 'Copying templates', { minor: false });
+          Mwn.log(`Saved '${title}'`);
+          // await copyToWikiBot.sleep(THROTTLE);
+        } catch (err) {
+          Mwn.log(err);
+        }
       },
       /* concurrency */ 3,
       /* retries */ 2
     );
   }
 
-  for (const gen of generators) {
-    for await (let json of gen) {
+  const _promises = generators.map(generator => async function () {
+    for await (let json of generator) {
       await handleQuery(json);
     }
+  });
+  for (const promise of _promises) {
+    await promise();
   }
 }
 
