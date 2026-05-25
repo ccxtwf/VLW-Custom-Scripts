@@ -2,9 +2,11 @@
   "name": "mwn-scripts",
   "version": "1.0.0",
   "main": "",
+  "type": "module",
   "scripts": {
     "producer": "node --env-file=.env producer_page_bot.ts",
-    "producer-dev": "node --env-file=.env producer_page_bot.ts --dry-run"
+    "producer-dev": "node --env-file=.env producer_page_bot.ts --dry-run",
+    "template-sync": "node --env-file=.env template-sync.ts live dev"
   },
   "author": "ccxtwf",
   "license": "ISC",
