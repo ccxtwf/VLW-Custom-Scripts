@@ -6,23 +6,31 @@ import http from "http";
 import https from "https";
 import axios from "axios";
 import { writeFile } from "fs/promises";
-import { integratedLogin } from "./util";
+import { readWikiProfiles, integratedLogin } from "./util.ts";
 
 const folderDir = process.env.EXPORT_DUMP_TO_DIRECTORY || __dirname;
 
 async function initBot() {
+
+  //@ts-ignore
+  const wikiProfile: WikiProfile = (readWikiProfiles() || {})[process.env.PROFILE || 'live'] || {
+    apiEntrypoint: process.env.WIKI_API_URL,
+    botUsername: process.env.BOT_USERNAME,
+    botPassword: process.env.BOT_PASSWORD,
+    oauthToken: process.env.BOT_OAUTH_ACCESS_TOKEN,
+    botUseragent: process.env.BOT_USERAGENT,
+  };
+
   const bot = new Mwn({
-    apiUrl: process.env.WIKI_API_URL,
-    username: process.env.BOT_USERNAME,
-    password: process.env.BOT_PASSWORD,
-    OAuth2AccessToken: process.env.BOT_OAUTH_ACCESS_TOKEN,
-    userAgent: process.env.BOT_USERAGENT,
+    ...wikiProfile.miscConfig || {},
+    apiUrl: wikiProfile.apiEntrypoint,
+    username: wikiProfile.botUsername,
+    password: wikiProfile.botPassword,
+    OAuth2AccessToken: wikiProfile.oauthToken,
+    userAgent: wikiProfile.userAgent,
     silent: true,       // suppress messages (except error messages)
     retryPause: 5000,   // pause for 5000 milliseconds (5 seconds) on maxlag error.
     maxRetries: 5,      // attempt to retry a failing requests upto 3 times
-    defaultParams: {
-      assert: 'bot',    // assert logged in as bot
-    }
   });
 
   if (process.env.ENV_REJECT_UNAUTHORIZED === '0') {

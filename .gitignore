@@ -9,4 +9,5 @@ pywikibot/user-config.py
 pywikibot/user-password.py
 pywikibot/*.lwp
 
-mwn/profiles.json
+credentials/*
+!credentials/profiles.EXAMPLE.json

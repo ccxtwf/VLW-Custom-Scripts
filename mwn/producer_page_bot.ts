@@ -9,7 +9,8 @@ import http from "http";
 import https from "https";
 import axios from "axios";
 import fs from "fs";
-import { integratedLogin } from "./util.ts";
+import { readWikiProfiles, integratedLogin, setLoggingConfig } from "./util.ts";
+import type { WikiProfile } from './util.ts';
 
 import { producerPageBotMixin } from "./producer_page_bot_utils.ts";
 import type { IProducerPageBotMixin } from "./producer_page_bot_utils.ts";
@@ -34,6 +35,8 @@ interface IProducerPageConfig {
   editSummary: string
   producerPagesWithDiscogSubpages : IProducerPagesWithDiscogSubpages
 }
+
+setLoggingConfig({ prefix: 'producer-bot', dualStream: true });
 
 function parseArguments(): IProducerPageBotCliOptions {
   const options: IProducerPageBotCliOptions = {};
@@ -160,18 +163,25 @@ class ProducerPageBot extends Mwn {
 async function initBot() {
   const cliOptions = parseArguments();
 
+  //@ts-ignore
+  const wikiProfile: WikiProfile = (readWikiProfiles() || {})[process.env.PROFILE || 'live'] || {
+    apiEntrypoint: process.env.WIKI_API_URL,
+    botUsername: process.env.BOT_USERNAME,
+    botPassword: process.env.BOT_PASSWORD,
+    oauthToken: process.env.BOT_OAUTH_ACCESS_TOKEN,
+    botUseragent: process.env.BOT_USERAGENT,
+  };
+
   const bot = new ProducerPageBot({
-    apiUrl: process.env.WIKI_API_URL,
-    username: process.env.BOT_USERNAME,
-    password: process.env.BOT_PASSWORD,
-    OAuth2AccessToken: process.env.BOT_OAUTH_ACCESS_TOKEN,
-    userAgent: process.env.BOT_USERAGENT,
+    ...wikiProfile.miscConfig || {},
+    apiUrl: wikiProfile.apiEntrypoint,
+    username: wikiProfile.botUsername,
+    password: wikiProfile.botPassword,
+    OAuth2AccessToken: wikiProfile.oauthToken,
+    userAgent: wikiProfile.botUseragent,
     silent: true,       // suppress messages (except error messages)
     retryPause: 5000,   // pause for 5000 milliseconds (5 seconds) on maxlag error.
     maxRetries: 5,      // attempt to retry a failing requests upto 3 times
-    defaultParams: {
-      assert: 'bot',    // assert logged in as bot
-    }
   }, { 
     editSummary: EDIT_SUMMARY, 
     producerPagesWithDiscogSubpages: producersWithDiscographySubpages as IProducerPagesWithDiscogSubpages
