@@ -4,7 +4,7 @@ import { Mwn } from "mwn";
 import http from "http";
 import https from "https";
 import axios from "axios";
-import { writeFileSync } from "fs";
+import { createWriteStream } from "fs";
 import { readWikiProfiles, integratedLogin } from "./util.ts";
 
 async function initBot() {
@@ -53,16 +53,27 @@ interface TemplateUsage {
 async function main() {
   const bot = await initBot();
   const o: Record<number, TemplateUsage> = {};
-  const templateTitles: string[] = (await bot.continuedQuery({
-    action: 'query',
-    format: 'json',
-    list: 'allpages',
-    // apnamespace: '10',
-    apnamespace: '828',
-    aplimit: '500',
-  })).map(({ query: { allpages = [] } = {} }) => allpages.map(({ title }: { title: string }) => title)).flat();
-  // console.log(templateTitles);
-  console.log(`Got ${templateTitles.length} template titles`);
+  
+  const templateTitles = await (async () => {
+    const res: string[] = [];
+    const arrFetched = await Promise.all(['10', '828'].map((ns) => (
+      bot.continuedQuery({
+        action: 'query',
+        format: 'json',
+        list: 'allpages',
+        apnamespace: ns,
+        aplimit: 'max'
+      })
+    )));
+    for (const fetched of arrFetched) {
+      const _titles = fetched.map(({ query: { allpages = [] } = {} }: { query?: { allpages?: { title: string }[] } }) => {
+        return allpages.map(({ title }) => title);
+      }).flat();
+      res.push(..._titles);
+    }
+    return res;
+  })();
+  Mwn.log(`Got ${templateTitles.length} Template: & Module: titles`);
 
   await bot.batchOperation(
     templateTitles,
@@ -73,7 +84,7 @@ async function main() {
         prop: 'transcludedin',
         tiprop: 'pageid', 
         tishow: '!redirect',
-        tilimit: '500', 
+        tilimit: 'max', 
         tinamespace: '0',
         titles: page,
       });
@@ -92,8 +103,18 @@ async function main() {
   );
 
   const res: TemplateUsage[] = Object.values(o).sort((a, b) => b.usage - a.usage);
-  console.log(`Queried ${res.length} templates`);
-  writeFileSync('./module-usage.log', JSON.stringify(res), { encoding: 'utf-8', flag: 'w' });
+  Mwn.log(`Queried ${res.length} templates`);
+  const ws = createWriteStream('./template-usage.log', { encoding: 'utf-8' });
+  try {
+    ws.write('pageid,ns,title,usage\n');
+    for (const { pageid, ns, title, usage } of res) {
+      ws.write([pageid, ns, title, usage].join(',') + '\n');
+    }
+  } catch (err) {
+    Mwn.log(err);
+  } finally {
+    ws.close();
+  }
 }
 
 main();
