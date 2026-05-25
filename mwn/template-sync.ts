@@ -146,30 +146,38 @@ async function run(copyFromWikiBot: Mwn, copyToWikiBot: Mwn, args: ITemplateSync
 }
 
 async function main() {
-  const wikiProfiles = readWikiProfiles();
-  if (wikiProfiles === null) {
-    Mwn.log('Failed to read profiles.json in the working directory!');
+  try {
+    const args = parseArguments();
+    const [copyFromWikiBot, copyToWikiBot] = await (async () => {
+      const wikiProfiles = readWikiProfiles();
+      if (wikiProfiles === null) {
+        throw Error('Failed to read profiles.json in the working directory!');
+      }
+      
+      if (!wikiProfiles[args.from] || !wikiProfiles[args.to]) {
+        throw Error('You must specify the source & target wikis!');
+      }
+
+      const copyFromWikiBot = await initBot(wikiProfiles[args.from], true);
+      const copyToWikiBot = await initBot(wikiProfiles[args.to], false);
+
+      return [copyFromWikiBot, copyToWikiBot];
+    })();
+    
+    const prompt = createInterface({ 
+      input: process.stdin, 
+      output: process.stdout 
+    });
+    prompt.question(styleText('magenta', `You are about to copy pages from '${args.from}' (${copyFromWikiBot.options.apiUrl}) to '${args.to}' (${copyToWikiBot.options.apiUrl}). Are you sure you want to continue? [y/n] `), async (answer) => {
+      if (answer.toLowerCase().trim() === 'y') {
+        await run(copyFromWikiBot, copyToWikiBot, args);
+      }
+      prompt.close();
+    });
+  } catch (err) {
+    Mwn.log(err); 
     return;
   }
-  const args = parseArguments();
-  if (!wikiProfiles[args.from] || !wikiProfiles[args.to]) {
-    Mwn.log('You must specify the source & target wikis!');
-    return;
-  }
-
-  const copyFromWikiBot = await initBot(wikiProfiles[args.from], true);
-  const copyToWikiBot = await initBot(wikiProfiles[args.to], false);
-
-  const prompt = createInterface({ 
-    input: process.stdin, 
-    output: process.stdout 
-  });
-  prompt.question(styleText('magenta', `You are about to copy pages from '${args.from}' (${wikiProfiles[args.from].apiEntrypoint}) to '${args.to}' (${wikiProfiles[args.to].apiEntrypoint}). Are you sure you want to continue? [y/n] `), async (answer) => {
-    if (answer.toLowerCase().trim() === 'y') {
-      await run(copyFromWikiBot, copyToWikiBot, args);
-    }
-    prompt.close();
-  });
 }
 
 main();
