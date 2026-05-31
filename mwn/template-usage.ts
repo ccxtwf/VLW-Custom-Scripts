@@ -1,3 +1,15 @@
+/**
+ * This is a bot script used to log template usage statistics
+ * 
+ * Prerequisites:
+ *   - Add wiki credentials to credentials/profiles.json [with the profile name/key `live`], OR 
+ *     add wiki credentials to environment variables
+ *   - Set PROFILE= in the environment variables if using a profile other than `live`
+ * 
+ * Usage:
+ *   node template-usage.ts
+ * 
+ */
 import "dotenv/config";
 
 import { Mwn } from "mwn";

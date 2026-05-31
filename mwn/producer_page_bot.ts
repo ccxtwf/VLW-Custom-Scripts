@@ -1,3 +1,19 @@
+/**
+ * This is a bot script used to update producer page discography tables in the Vocaloid Lyrics Wiki
+ *  
+ * Prerequisites:
+ *   - Add wiki credentials to credentials/profiles.json [with the profile name/key `live`], OR 
+ *     add wiki credentials to environment variables
+ *   - Set PROFILE= in the environment variables if using a profile other than `live`
+ * 
+ * Usage:
+ *   node producer_page_bot.ts [--page <PAGE>] [--from <FROM>] [--dry-run]
+ * Arguments:
+ *   --page     Only update for this page
+ *   --from     Update producer pages with titles starting from this string
+ *   --dry-run  Simulated run, i.e. run the script without updating anything in the wiki 
+ * 
+ */
 import "dotenv/config";
 import minimist from "minimist";
 

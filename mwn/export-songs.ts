@@ -1,3 +1,19 @@
+/**
+ * This is a bot script used to export song pages as a wiki dump
+ * 
+ * Prerequisites:
+ *   - Add wiki credentials to credentials/profiles.json [with the profile name/key `live`], OR 
+ *     add wiki credentials to environment variables
+ *   - The set wiki profile should be part of the `bot`/`sysop` user group (or otherwise have the 
+ *     `apihighlimits` user right) to save 5000 pages per file
+ *   - Set PROFILE= in the environment variables if using a profile other than `live`
+ *   - Set EXPORT_DUMP_TO_DIRECTORY= in the environment variables to save the data dump in 
+ *     another directory
+ * 
+ * Usage:
+ *   node export-songs.ts
+ * 
+ */
 import "dotenv/config";
 
 import { Mwn } from "mwn";

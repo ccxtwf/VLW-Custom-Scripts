@@ -1,4 +1,29 @@
+/**
+ * This is a bot script used to list pages existing in specified categories in the Vocaloid Lyrics Wiki
+ * Functionally the same as listpages.py on pywikibot:
+ * https://www.mediawiki.org/wiki/Manual:Pywikibot/listpages.py
+ * 
+ * Prerequisites:
+ *   - Add wiki credentials to credentials/profiles.json [with the profile name/key `live`], OR 
+ *     add wiki credentials to environment variables
+ *   - Set PROFILE= in the environment variables if using a profile other than `live`
+ * 
+ * Usage:
+ *   node listpages.ts "<list>" [--namespaces <list>] [--as-pageid]
+ * Arguments:
+ *   --namespaces   Comma-separated list of namespaces (numerical IDs) of pages to query
+ *   --as-pageid    Only export page IDs (default: title)
+ * 
+ * Example:
+ *   node listpages.ts "Songs featuring VOICEPEAK Female 2, Demonstrations"
+ *      List songs in Category:Songs featuring VOICEPEAK Female 2 OR Category:Demonstrations
+ *   node listpages.ts "Songs featuring VOICEPEAK Female 2, Demonstrations" --namespaces "0"
+ *   node listpages.ts "Templates" --namespaces "10,828"
+ */
 import "dotenv/config";
+import minimist from "minimist";
+
+const argv = minimist(process.argv.slice(2));
 
 import { Mwn } from "mwn";
 import type { ApiResponse } from "mwn";
@@ -6,7 +31,33 @@ import http from "http";
 import https from "https";
 import axios from "axios";
 import { writeFile } from "fs/promises";
-import { integratedLogin } from "./util.ts";
+import { readWikiProfiles, integratedLogin } from "./util.ts";
+
+interface IPageListerCliOptions {
+  categories: string[]
+  namespaces?: string[]
+  asPageId: boolean
+}
+
+function parseArguments(): IPageListerCliOptions {
+  const options: IPageListerCliOptions = { 
+    categories: [],
+    asPageId: false,
+  };
+  if (argv['_'][0]) {
+    options['categories'] = argv['_'][0].trim().split(/\s*,\s*/);
+  }
+  if (argv['namespaces']) {
+    options['namespaces'] = String(argv['namespaces'] as string)
+      .trim()
+      .split(/\s*,\s*/)
+      .filter(i => !isNaN(+i));
+  }
+  if (argv['as-pageid']) {
+    options['asPageId'] = true;
+  }
+  return options;
+}
 
 async function initBot() {
 
@@ -46,56 +97,50 @@ async function initBot() {
 }
 
 async function main() {
+  const args = parseArguments();
+  if (args.categories.length === 0) {
+    Mwn.log('[E] At least one category must be listed!');
+    return;
+  }
+
   const bot = await initBot();
-  const demoPagesInCategory = bot.continuedQueryGen({
-    action: 'query',
-    format: 'json',
-    list: 'categorymembers',
-    cmtitle: 'Category:Demonstrations',
-    cmnamespace: 0,
-    cmprop: 'ids|title',
-    cmlimit: 'max',
-  });
-  const abPagesInCategory = bot.continuedQueryGen({
-    action: 'query',
-    format: 'json',
-    list: 'categorymembers',
-    cmtitle: 'Category:Album Only songs',
-    cmnamespace: 0,
-    cmprop: 'ids|title',
-    cmlimit: 'max',
+
+  const generators = args.categories.map(category => {
+    const opts: Record<string, string> = {
+      action: 'query',
+      format: 'json',
+      list: 'categorymembers',
+      cmtitle: `Category:${category}`,
+      cmprop: 'ids|title',
+      cmlimit: 'max',
+    };
+    if (args.namespaces) {
+      opts['cmnamespace'] = args.namespaces.join('|');
+    }
+    return bot.continuedQueryGen(opts);
   });
 
-  const excludeTheseIds = new Set<number>();
-  
-  const writeToFilename = `${__dirname}/list-pages.txt`;
+  const writeToFilename = `./list-pages.txt`;
   await writeFile(writeToFilename, '', { flag: 'w', encoding: 'utf-8' });
 
-  const handle = async (json: ApiResponse, excludeTheseIds: Set<number>, writeToSet: boolean) => {
+  const handle = async (json: ApiResponse) => {
     if (!json.query) {
       Mwn.log(`Error, got response: ${json}`);
       return;
     }
-    let pageIds = json.query.categorymembers
+    let pageOutputs = json.query.categorymembers
       .map(({ pageid, title }: { pageid: number, ns: number, title: string }) => {
-        if (excludeTheseIds.has(pageid)) {
-          Mwn.log(`Excluding ${title}`);
-          return null;
-        }
-        if (writeToSet) {
-          excludeTheseIds.add(pageid);
-        }
-        // return `[[${title}]]`;
-        return pageid;
+        return args.asPageId ? pageid : title;
       }).filter((s: string | null) => s !== null);
     Mwn.log(`Writing to ${writeToFilename}`);
-    await writeFile(writeToFilename, pageIds.join('\n') + '\n', { flag: 'a+', encoding: 'utf-8' });
+    await writeFile(writeToFilename, pageOutputs.join('\n') + '\n', { flag: 'a+', encoding: 'utf-8' });
   }
-  for await (let json of demoPagesInCategory as AsyncGenerator<ApiResponse>) {
-    await handle(json, excludeTheseIds, true);
-  }
-  for await (let json of abPagesInCategory as AsyncGenerator<ApiResponse>) {
-    await handle(json, excludeTheseIds, false);
+  for (const generator of generators) {
+    await (async () => {
+      for await (let json of generator as AsyncGenerator<ApiResponse>) {
+        await handle(json);
+      }
+    })();
   }
 }
 

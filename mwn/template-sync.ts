@@ -1,3 +1,30 @@
+/**
+ * This is a bot script used to sync Template:, Module:, MediaWiki: pages across two wikis
+ * 
+ * Prerequisites:
+ *   - Add wiki credentials of at least 2 wikis to credentials/profiles.json
+ * 
+ * Usage:
+ *   node template-sync.ts <from-profile> <to-profile> [--namespaces <list>] [--list <list>] [--comment <comment>]
+ * Arguments:
+ *   --from-profile       Name/key of the wiki profile (on profiles.json) of the wiki to copy from
+ *   --to-profile         Name/key of the wiki profile (on profiles.json) of the wiki to copy to
+ *   --namespaces         Comma-separated list of namespaces of pages to copy. 
+ *                        Default: Template:, Module:, MediaWiki:
+ *   --list               Newline-separated list of pages to copy
+ *   --comment            Edit comment
+ * 
+ * Example:
+ *   node template-sync.ts live dev
+ *        Copy from live to dev
+ *   node template-sync.ts live dev --namespaces Module,Template
+ *        Only copy Module: & Template: pages
+ *   node template-sync.ts live dev --list "$(cat list.txt)"
+ *        Only copy the pages listed on list.txt
+ *   node template-sync.ts live dev --comment "Syncing the new template..."
+ *        Uses a custom edit comment
+ * 
+ */
 import "dotenv/config";
 import minimist from "minimist";
 import deepmerge from "deepmerge";
@@ -27,14 +54,19 @@ function parseArguments(): ITemplateSyncerCliOptions {
     from: argv['_'][0],
     to: argv['_'][1],
   };
-  if (!!argv['namespaces']) {
-    options.namespaces = (argv['namespaces'] as string)
-      .split(/\s*,\s*/)
-      .filter(item => item.match(/[Tt]emplate|[Mm]odule|[M]edia[Ww]iki/) !== null)
-      .map(item => ({ 'template': 'Template', 'module': 'Module', 'mediawiki': 'MediaWiki' }[item.toLowerCase()]) as 'Template' | 'Module' | 'MediaWiki');
+  if (argv['namespaces']) {
+    options.namespaces = [];
+    for (const s of String(argv['namespaces'] as string).split(/,/)) {
+      const m = s.match(/(template|module|mediawiki)/i);
+      if (m === null) {
+        continue;
+      }
+      const ns = ({ 'template': 'Template', 'module': 'Module', 'mediawiki': 'MediaWiki' }[m.groups![1]!.toLowerCase()]) as 'Template' | 'Module' | 'MediaWiki';
+      options.namespaces.push(ns);
+    }
   }
-  if (!!argv['list']) {
-    options.list = (argv['list'] as string)
+  if (argv['list']) {
+    options.list = String(argv['list'] as string)
       .split(/[ \r\t]*\n+[ \r\t]*/)
       .map(s => s.trim())
       .filter(s => s !== '');
