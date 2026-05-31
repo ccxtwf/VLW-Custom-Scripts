@@ -23,8 +23,6 @@
 import "dotenv/config";
 import minimist from "minimist";
 
-const argv = minimist(process.argv.slice(2));
-
 import { Mwn } from "mwn";
 import type { ApiResponse } from "mwn";
 import http from "http";
@@ -40,6 +38,7 @@ interface IPageListerCliOptions {
 }
 
 function parseArguments(): IPageListerCliOptions {
+  const argv = minimist(process.argv.slice(2));
   const options: IPageListerCliOptions = { 
     categories: [],
     asPageId: false,

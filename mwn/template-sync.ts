@@ -30,15 +30,11 @@ import minimist from "minimist";
 import deepmerge from "deepmerge";
 import { createInterface } from "readline";
 
-const argv = minimist(process.argv.slice(2));
-
 import { Mwn } from "mwn";
 import type { ApiResponse } from "mwn";
-import { integratedLogin } from "./util.ts";
-import { styleText } from "util";
-
-import { readWikiProfiles } from "./util.ts";
+import { readWikiProfiles, integratedLogin } from "./util.ts";
 import type { WikiProfile } from "./util.ts";
+import { styleText } from "util";
 
 interface ITemplateSyncerCliOptions {
   namespaces: ('Template' | 'Module' | 'MediaWiki')[]
@@ -49,6 +45,7 @@ interface ITemplateSyncerCliOptions {
 }
 
 function parseArguments(): ITemplateSyncerCliOptions {
+  const argv = minimist(process.argv.slice(2));
   const options: ITemplateSyncerCliOptions = { 
     namespaces: ['Template', 'Module', 'MediaWiki'],
     from: argv['_'][0],
