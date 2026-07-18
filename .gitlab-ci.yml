@@ -36,7 +36,7 @@ install_pwb_deps:
     paths:
       - .cache/pip/
   script:
-    - pip install --cache-dir=.cache/pip -r pywikibot/requirements.txt
+    - pip install --cache-dir=.cache/pip pywikibot/
 
 run_producer_page_bot:
   stage: run
