@@ -26,7 +26,7 @@ export interface WikiProfile {
 export function readWikiProfiles(): Record<string, WikiProfile> | null {
   //@ts-ignore
   const __dirname = import.meta.dirname;
-  const fp = resolve(__dirname, './profiles.json');
+  const fp = resolve(__dirname, '../credentials/profiles.json');
   if (!existsSync(fp)) {
     return null;
   }
@@ -91,5 +91,6 @@ export async function integratedLogin(bot: Mwn) {
     }
   } catch (err) {
     Mwn.log(styleText( 'red', `[E] ${err}` ));
+    throw err;
   }
 }
