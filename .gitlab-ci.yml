@@ -13,10 +13,10 @@ log_runner_ip:
 
 install_mwn_deps:
   stage: install
-  tags:
-    - mwn
   cache:
-    key: mwn-npm-cache
+    key: 
+      files_commits:
+        - mwn/package.json
     paths:
       - mwn/.npm-cache/
   script:
@@ -29,8 +29,6 @@ install_mwn_deps:
 
 install_pwb_deps:
   stage: install
-  tags:
-    - pwb
   cache:
     key: pwb-pip-cache
     paths:
@@ -41,11 +39,9 @@ install_pwb_deps:
 run_producer_page_bot:
   stage: run
   image: node:24-slim
-  tags:
-    - producer_page_bot
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_PIPELINE_KEY == "producer_page_bot"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $SCHEDULE_PIPELINE_KEY == "producer_page_bot"'
       when: manual
       allow_failure: true
   needs:
