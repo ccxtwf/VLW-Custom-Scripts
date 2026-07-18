@@ -1,0 +1,61 @@
+# written with AI assistance by Claude
+
+stages:
+  - network-info
+  - install
+  - run
+
+log_runner_ip:
+  stage: network-info
+  image: curlimages/curl:latest
+  script:
+    - curl -s https://ifconfig.me || true
+
+install_mwn_deps:
+  stage: install
+  tags:
+    - mwn
+  cache:
+    key: mwn-npm-cache
+    paths:
+      - mwn/.npm-cache/
+  script:
+    - cd mwn/
+    - npm ci --cache .npm-cache/
+  artifacts:
+    paths:
+      - mwn/node_modules/
+    expire_in: 1 hour
+
+install_pwb_deps:
+  stage: install
+  tags:
+    - pwb
+  cache:
+    key: pwb-pip-cache
+    paths:
+      - .cache/pip/
+  script:
+    - pip install --cache-dir=.cache/pip -r pywikibot/requirements.txt
+
+run_producer_page_bot:
+  stage: run
+  image: node:24-slim
+  tags:
+    - producer_page_bot
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+      allow_failure: true
+  needs:
+    - install_mwn_deps
+  script:
+    - cd mwn/
+    - node producer_page_bot.ts
+  artifacts:
+    paths:
+      - logs/
+    when: always
+    access: maintainer
+    expire_in: 30 days
