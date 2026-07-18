@@ -47,3 +47,14 @@ run_producer_page_bot:
     when: always
     access: maintainer
     expire_in: 30 days
+
+test_mwn_login:
+  stage: run
+  image: curlimages/curl:latest
+  when: "manual"
+  script:
+    - >
+      curl --verbose 
+      --header "Authorization: Bearer $BOT_OAUTH_ACCESS_TOKEN" 
+      --header "User-Agent: $BOT_USERAGENT" 
+      "$WIKI_API_URL?format=json&formatversion=2&action=query&meta=tokens%7Csiteinfo%7Cuserinfo&type=csrf%7Ccreateaccount%7Clogin%7Cpatrol%7Crollback%7Cuserrights%7Cwatch&siprop=general%7Cnamespaces%7Cnamespacealiases&uiprop=rights"
