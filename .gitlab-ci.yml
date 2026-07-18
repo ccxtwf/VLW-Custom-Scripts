@@ -28,16 +28,6 @@ install_mwn_deps:
       - mwn/node_modules/
     expire_in: 1 hour
 
-install_pwb_deps:
-  stage: install
-  image: python:3.12-slim
-  cache:
-    key: pwb-pip-cache
-    paths:
-      - .cache/pip/
-  script:
-    - pip install --cache-dir=.cache/pip pywikibot/
-
 run_producer_page_bot:
   stage: run
   image: node:24-slim
