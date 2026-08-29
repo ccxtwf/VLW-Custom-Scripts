@@ -1,0 +1,7 @@
+{
+  "ignorePatterns": ["**/*.md", "**/*.json"],
+  "semi": true,
+  "singleQuote": false,
+  "arrowParens": "always",
+  "insertFinalNewline": false   
+}
