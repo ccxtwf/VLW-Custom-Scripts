@@ -1,18 +1,18 @@
 /**
  * This is a bot script used to export song pages as a wiki dump
- * 
+ *
  * Prerequisites:
- *   - Add wiki credentials to credentials/profiles.json [with the profile name/key `live`], OR 
+ *   - Add wiki credentials to credentials/profiles.json [with the profile name/key `live`], OR
  *     add wiki credentials to environment variables
- *   - The set wiki profile should be part of the `bot`/`sysop` user group (or otherwise have the 
+ *   - The set wiki profile should be part of the `bot`/`sysop` user group (or otherwise have the
  *     `apihighlimits` user right) to save 5000 pages per file
  *   - Set PROFILE= in the environment variables if using a profile other than `live`
- *   - Set EXPORT_DUMP_TO_DIRECTORY= in the environment variables to save the data dump in 
+ *   - Set EXPORT_DUMP_TO_DIRECTORY= in the environment variables to save the data dump in
  *     another directory
- * 
+ *
  * Usage:
  *   node export-songs.ts
- * 
+ *
  */
 import "dotenv/config";
 
@@ -27,9 +27,8 @@ import { readWikiProfiles, integratedLogin } from "./util.ts";
 const folderDir = process.env.EXPORT_DUMP_TO_DIRECTORY || __dirname;
 
 async function initBot() {
-
   //@ts-ignore
-  const wikiProfile: WikiProfile = (readWikiProfiles() || {})[process.env.PROFILE || 'live'] || {
+  const wikiProfile: WikiProfile = (readWikiProfiles() || {})[process.env.PROFILE || "live"] || {
     apiEntrypoint: process.env.WIKI_API_URL,
     botUsername: process.env.BOT_USERNAME,
     botPassword: process.env.BOT_PASSWORD,
@@ -38,26 +37,28 @@ async function initBot() {
   };
 
   const bot = new Mwn({
-    ...wikiProfile.miscConfig || {},
+    ...wikiProfile.miscConfig,
     apiUrl: wikiProfile.apiEntrypoint,
     username: wikiProfile.botUsername,
     password: wikiProfile.botPassword,
     OAuth2AccessToken: wikiProfile.oauthToken,
     userAgent: wikiProfile.userAgent,
-    silent: true,       // suppress messages (except error messages)
-    retryPause: 5000,   // pause for 5000 milliseconds (5 seconds) on maxlag error.
-    maxRetries: 5,      // attempt to retry a failing requests upto 3 times
+    silent: true, // suppress messages (except error messages)
+    retryPause: 5000, // pause for 5000 milliseconds (5 seconds) on maxlag error.
+    maxRetries: 5, // attempt to retry a failing requests upto 3 times
   });
 
-  if (process.env.ENV_REJECT_UNAUTHORIZED === '0') {
-    Mwn.log("Setting HTTP Request Agent to not reject unauthorized requests. Do not do this on a production environment.");
+  if (process.env.ENV_REJECT_UNAUTHORIZED === "0") {
+    Mwn.log(
+      "Setting HTTP Request Agent to not reject unauthorized requests. Do not do this on a production environment.",
+    );
     const httpAgent = new http.Agent({ keepAlive: true });
     const httpsAgent = new https.Agent({ keepAlive: true, rejectUnauthorized: false });
     axios.defaults.httpAgent = httpAgent;
     axios.defaults.httpsAgent = httpsAgent;
     bot.setRequestOptions({ httpAgent, httpsAgent });
   }
-  
+
   await integratedLogin(bot);
 
   return bot;
@@ -66,15 +67,24 @@ async function initBot() {
 async function main() {
   const bot = await initBot();
   const pagesInCategory = bot.continuedQueryGen({
-    action: 'query',
-    format: 'json',
-    generator: 'categorymembers',
-    gcmtitle: 'Category:Songs',
+    action: "query",
+    format: "json",
+
+    /* categorymembers */
+    generator: "categorymembers",
+    gcmtitle: "Category:Songs",
     gcmnamespace: 0,
-    gcmprop: 'ids|title|sortkeyprefix',
-    gcmlimit: 'max',
-    gcmsort: 'timestamp',
-    export: true
+    gcmprop: "ids|title|sortkeyprefix",
+    gcmlimit: "max",
+    gcmsort: "timestamp",
+
+    /* allpages */
+    // generator: 'allpages',
+    // gapnamespace: '10',
+    // gapprop: 'ids|title|sortkeyprefix',
+    // gaplimit: 'max',
+
+    export: true,
   });
   let numPages = 0;
   for await (let json of pagesInCategory as AsyncGenerator<ApiResponse>) {
@@ -83,9 +93,9 @@ async function main() {
       return;
     }
     const xml = json.query.export;
-    const writeToFilename = `${folderDir}/exported-vlw-songs-${++numPages}.xml`;
+    const writeToFilename = `${folderDir}/exported-songs-${++numPages}.xml`;
     Mwn.log(`Writing ${writeToFilename}`);
-    await writeFile(writeToFilename, xml, { flag: 'w', encoding: 'utf-8' });
+    await writeFile(writeToFilename, xml, { flag: "w", encoding: "utf-8" });
   }
 }
 

@@ -1,19 +1,19 @@
 /**
  * This is a bot script used to sync Template:, Module:, MediaWiki: pages across two wikis
- * 
+ *
  * Prerequisites:
  *   - Add wiki credentials of at least 2 wikis to credentials/profiles.json
- * 
+ *
  * Usage:
  *   node template-sync.ts <from-profile> <to-profile> [--namespaces <list>] [--list <list>] [--comment <comment>]
  * Arguments:
  *   --from-profile       Name/key of the wiki profile (on profiles.json) of the wiki to copy from
  *   --to-profile         Name/key of the wiki profile (on profiles.json) of the wiki to copy to
- *   --namespaces         Comma-separated list of namespaces of pages to copy. 
+ *   --namespaces         Comma-separated list of namespaces of pages to copy.
  *                        Default: Template:, Module:, MediaWiki:
  *   --list               Newline-separated list of pages to copy
  *   --comment            Edit comment
- * 
+ *
  * Example:
  *   node template-sync.ts live dev
  *        Copy from live to dev
@@ -23,7 +23,7 @@
  *        Only copy the pages listed on list.txt
  *   node template-sync.ts live dev --comment "Syncing the new template..."
  *        Uses a custom edit comment
- * 
+ *
  */
 import "dotenv/config";
 import minimist from "minimist";
@@ -32,100 +32,109 @@ import { createInterface } from "readline";
 
 import { Mwn } from "mwn";
 import type { ApiResponse } from "mwn";
-import { readWikiProfiles, integratedLogin } from "./util.ts";
+import { readWikiProfiles, integratedLogin, waitForUserConfirmation } from "./util.ts";
 import type { WikiProfile } from "./util.ts";
 import { styleText } from "util";
 
 interface ITemplateSyncerCliOptions {
-  namespaces: ('Template' | 'Module' | 'MediaWiki')[]
-  list?: string[]
-  from: string
-  to: string
-  comment?: string
+  namespaces: ("Template" | "Module" | "MediaWiki")[];
+  list?: string[];
+  from: string;
+  to: string;
+  comment?: string;
 }
 
 function parseArguments(): ITemplateSyncerCliOptions {
   const argv = minimist(process.argv.slice(2));
-  const options: ITemplateSyncerCliOptions = { 
-    namespaces: ['Template', 'Module', 'MediaWiki'],
-    from: argv['_'][0],
-    to: argv['_'][1],
+  const options: ITemplateSyncerCliOptions = {
+    namespaces: ["Template", "Module", "MediaWiki"],
+    from: argv["_"][0],
+    to: argv["_"][1],
   };
-  if (argv['namespaces']) {
+  if (argv["namespaces"]) {
     options.namespaces = [];
-    for (const s of String(argv['namespaces'] as string).split(/,/)) {
+    for (const s of String(argv["namespaces"] as string).split(/,/)) {
       const m = s.match(/(template|module|mediawiki)/i);
       if (m === null) {
         continue;
       }
-      const ns = ({ 'template': 'Template', 'module': 'Module', 'mediawiki': 'MediaWiki' }[m.groups![1]!.toLowerCase()]) as 'Template' | 'Module' | 'MediaWiki';
+      const ns = { template: "Template", module: "Module", mediawiki: "MediaWiki" }[
+        m.groups![1]!.toLowerCase()
+      ] as "Template" | "Module" | "MediaWiki";
       options.namespaces.push(ns);
     }
   }
-  if (argv['list']) {
-    options.list = String(argv['list'] as string)
+  if (argv["list"]) {
+    options.list = String(argv["list"] as string)
       .split(/[ \r\t]*\n+[ \r\t]*/)
-      .map(s => s.trim())
-      .filter(s => s !== '');
+      .map((s) => s.trim())
+      .filter((s) => s !== "");
   }
-  options.comment = argv['comment'];
+  options.comment = argv["comment"];
   return options;
 }
 
-
-
 async function initBot(profile: WikiProfile, asSource: boolean) {
-  const mwnConfig = deepmerge({
-    apiUrl: profile.apiEntrypoint,
-    username: profile.botUsername,
-    password: profile.botPassword,
-    OAuth2AccessToken: profile.oauthToken,
-    userAgent: profile.botUseragent,
-    silent: true,       // suppress messages (except error messages)
-    retryPause: 5000,   // pause for 5000 milliseconds (5 seconds) on maxlag error.
-    maxRetries: 5,      // attempt to retry a failing requests upto 3 times
-  }, profile.miscConfig || {});
+  const mwnConfig = deepmerge(
+    {
+      apiUrl: profile.apiEntrypoint,
+      username: profile.botUsername,
+      password: profile.botPassword,
+      OAuth2AccessToken: profile.oauthToken,
+      userAgent: profile.botUseragent,
+      silent: true, // suppress messages (except error messages)
+      retryPause: 5000, // pause for 5000 milliseconds (5 seconds) on maxlag error.
+      maxRetries: 5, // attempt to retry a failing requests upto 3 times
+    },
+    profile.miscConfig || {},
+  );
   const bot = new Mwn(mwnConfig);
-  Mwn.log(`Logging into ${profile.apiEntrypoint} as ${profile.botUsername} [AS ${asSource ? 'SOURCE' : 'TARGET'}]`);
+  Mwn.log(
+    `Logging into ${profile.apiEntrypoint} as ${profile.botUsername} [AS ${asSource ? "SOURCE" : "TARGET"}]`,
+  );
   await integratedLogin(bot);
   return bot;
 }
 
 interface PageObject {
-  pageid: number
-  ns: number
-  title: string
+  pageid: number;
+  ns: number;
+  title: string;
   revisions: {
-    contentformat: string
-    contentmodel: string
-    comment: string
-    tags: string[]
-    content: string
-  }[]
+    contentformat: string;
+    contentmodel: string;
+    comment: string;
+    tags: string[];
+    content: string;
+  }[];
 }
 
 async function run(copyFromWikiBot: Mwn, copyToWikiBot: Mwn, args: ITemplateSyncerCliOptions) {
   const generators: AsyncGenerator<ApiResponse>[] = [];
   const _defMwApiParams = {
-    action: 'query',
-    format: 'json',
-    prop: 'revisions', 
-    rvprop: 'tags|content|comment',
+    action: "query",
+    format: "json",
+    prop: "revisions",
+    rvprop: "tags|content|comment",
   };
   if (args.list) {
-    generators.push(copyFromWikiBot.continuedQueryGen({
-      ..._defMwApiParams,
-      titles: args.list.join('|'),
-    }));
-  } else {
-    const _nsMap = { Template: 10, Module: 828, MediaWiki: 8, };
-    for (const ns of args.namespaces) {
-      generators.push(copyFromWikiBot.continuedQueryGen({
+    generators.push(
+      copyFromWikiBot.continuedQueryGen({
         ..._defMwApiParams,
-        generator: 'allpages',
-        gapnamespace: _nsMap[ns],
-        gaplimit: 50, 
-      }));
+        titles: args.list.join("|"),
+      }),
+    );
+  } else {
+    const _nsMap = { Template: 10, Module: 828, MediaWiki: 8 };
+    for (const ns of args.namespaces) {
+      generators.push(
+        copyFromWikiBot.continuedQueryGen({
+          ..._defMwApiParams,
+          generator: "allpages",
+          gapnamespace: _nsMap[ns],
+          gaplimit: 50,
+        }),
+      );
     }
   }
 
@@ -138,13 +147,16 @@ async function run(copyFromWikiBot: Mwn, copyToWikiBot: Mwn, args: ITemplateSync
     const [pagelist, pagecache] = (() => {
       const pages = Object.values(res.query.pages);
       const pagelist = pages.map(({ title }: PageObject) => title);
-      const cache = pages.reduce((acc: Record<string, PageObject>, page: PageObject) => {
-        acc[page.title] = page;
-        return acc;
-      }, {} as Record<string, PageObject>) as Record<string, PageObject>;
+      const cache = pages.reduce(
+        (acc: Record<string, PageObject>, page: PageObject) => {
+          acc[page.title] = page;
+          return acc;
+        },
+        {} as Record<string, PageObject>,
+      ) as Record<string, PageObject>;
       return [pagelist, cache];
     })();
-    
+
     await copyToWikiBot.batchOperation(
       pagelist,
       async (title) => {
@@ -152,7 +164,9 @@ async function run(copyFromWikiBot: Mwn, copyToWikiBot: Mwn, args: ITemplateSync
           const { revisions } = pagecache[title] as PageObject;
           const { content } = revisions[0];
           Mwn.log(`Editing '${title}'...`);
-          await copyToWikiBot.save(title, content, args.comment || 'Copying templates', { minor: false });
+          await copyToWikiBot.save(title, content, args.comment || "Copying templates", {
+            minor: false,
+          });
           Mwn.log(`Saved '${title}'`);
           // await copyToWikiBot.sleep(THROTTLE);
         } catch (err) {
@@ -160,15 +174,18 @@ async function run(copyFromWikiBot: Mwn, copyToWikiBot: Mwn, args: ITemplateSync
         }
       },
       /* concurrency */ 3,
-      /* retries */ 2
+      /* retries */ 2,
     );
-  }
+  };
 
-  const _promises = generators.map(generator => async function () {
-    for await (let json of generator) {
-      await handleQuery(json);
-    }
-  });
+  const _promises = generators.map(
+    (generator) =>
+      async function () {
+        for await (let json of generator) {
+          await handleQuery(json);
+        }
+      },
+  );
   for (const promise of _promises) {
     await promise();
   }
@@ -180,11 +197,11 @@ async function main() {
     const [copyFromWikiBot, copyToWikiBot] = await (async () => {
       const wikiProfiles = readWikiProfiles();
       if (wikiProfiles === null) {
-        throw Error('Failed to read profiles.json in the working directory!');
+        throw Error("Failed to read profiles.json in the working directory!");
       }
-      
+
       if (!wikiProfiles[args.from] || !wikiProfiles[args.to]) {
-        throw Error('You must specify the source & target wikis!');
+        throw Error("You must specify the source & target wikis!");
       }
 
       const copyFromWikiBot = await initBot(wikiProfiles[args.from], true);
@@ -204,7 +221,7 @@ async function main() {
       prompt.close();
     });
   } catch (err) {
-    Mwn.log(err); 
+    Mwn.log(err);
     return;
   }
 }

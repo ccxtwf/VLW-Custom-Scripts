@@ -2,19 +2,19 @@
  * This is a bot script used to null edit pages in the Vocaloid Lyrics Wiki
  * Functionally the same as touch.py on pywikibot:
  * https://www.mediawiki.org/wiki/Manual:Pywikibot/touch.py
- * 
+ *
  * Prerequisites:
- *   - Add wiki credentials to credentials/profiles.json [with the profile name/key `live`], OR 
+ *   - Add wiki credentials to credentials/profiles.json [with the profile name/key `live`], OR
  *     add wiki credentials to environment variables
  *   - Set PROFILE= in the environment variables if using a profile other than `live`
- * 
+ *
  * Usage:
  *   node null-edit.ts [--from <timestamp>] [--to <timestamp>] [--namespaces <list>]
  * Arguments:
  *   --from         ISO Timestamp of pages to edit
- *   --to         
+ *   --to
  *   --namespaces   Comma-separated list of namespaces (numerical IDs) of pages to query
- * 
+ *
  * Example:
  *   node null-edit.ts --from 2026-05-29T00:00:00Z --to 2026-05-29T04:00:00Z
  */
@@ -29,23 +29,25 @@ import axios from "axios";
 import { readWikiProfiles, integratedLogin } from "./util.ts";
 
 interface INullEditBotCliArguments {
-  from?: string
-  to?: string
-  namespaces?: string[]
-  hasArgs: boolean
+  from?: string;
+  to?: string;
+  namespaces?: string[];
+  hasArgs: boolean;
 }
 
 function parseArguments(): INullEditBotCliArguments {
   const argv = minimist(process.argv.slice(2));
-  const options: INullEditBotCliArguments = { 
-    hasArgs: false
+  const options: INullEditBotCliArguments = {
+    hasArgs: false,
   };
-  ['from', 'to', 'namespaces'].forEach((k) => {
+  ["from", "to", "namespaces"].forEach((k) => {
     if (argv[k]) {
-      if (k === 'namespaces') {
-        options[k] = String(argv[k]).trim().split(/\s*,\s*/);
+      if (k === "namespaces") {
+        options[k] = String(argv[k])
+          .trim()
+          .split(/\s*,\s*/);
       } else {
-        options[k as 'from' | 'to'] = argv[k];
+        options[k as "from" | "to"] = argv[k];
       }
       options.hasArgs = true;
     }
@@ -55,7 +57,7 @@ function parseArguments(): INullEditBotCliArguments {
 
 async function initBot() {
   //@ts-ignore
-  const wikiProfile: WikiProfile = (readWikiProfiles() || {})[process.env.PROFILE || 'live'] || {
+  const wikiProfile: WikiProfile = (readWikiProfiles() || {})[process.env.PROFILE || "live"] || {
     apiEntrypoint: process.env.WIKI_API_URL,
     botUsername: process.env.BOT_USERNAME,
     botPassword: process.env.BOT_PASSWORD,
@@ -64,19 +66,21 @@ async function initBot() {
   };
 
   const bot = new Mwn({
-    ...wikiProfile.miscConfig || {},
+    ...wikiProfile.miscConfig,
     apiUrl: wikiProfile.apiEntrypoint,
     username: wikiProfile.botUsername,
     password: wikiProfile.botPassword,
     OAuth2AccessToken: wikiProfile.oauthToken,
     userAgent: wikiProfile.userAgent,
-    silent: true,       // suppress messages (except error messages)
-    retryPause: 5000,   // pause for 5000 milliseconds (5 seconds) on maxlag error.
-    maxRetries: 5,      // attempt to retry a failing requests upto 3 times
+    silent: true, // suppress messages (except error messages)
+    retryPause: 5000, // pause for 5000 milliseconds (5 seconds) on maxlag error.
+    maxRetries: 5, // attempt to retry a failing requests upto 3 times
   });
 
-  if (process.env.ENV_REJECT_UNAUTHORIZED === '0') {
-    Mwn.log("[W] Setting HTTP Request Agent to not reject unauthorized requests. Do not do this on a production environment.");
+  if (process.env.ENV_REJECT_UNAUTHORIZED === "0") {
+    Mwn.log(
+      "[W] Setting HTTP Request Agent to not reject unauthorized requests. Do not do this on a production environment.",
+    );
     const httpAgent = new http.Agent({ keepAlive: true });
     const httpsAgent = new https.Agent({ keepAlive: true, rejectUnauthorized: false });
     axios.defaults.httpAgent = httpAgent;
@@ -85,7 +89,7 @@ async function initBot() {
   }
 
   await integratedLogin(bot);
-  
+
   return bot;
 }
 
@@ -93,23 +97,23 @@ async function nullEditSinglePage(bot: Mwn, title: string) {
   try {
     const token = await bot.getCsrfToken();
     await bot.request({
-      action: 'edit',
-      summary: 'Null edit (this edit should not be visible)',
+      action: "edit",
+      summary: "Null edit (this edit should not be visible)",
       title,
       notminor: true,
-      prependtext: '',
+      prependtext: "",
       nocreate: true,
       token,
-      assert: 'bot',
+      assert: "bot",
     });
     Mwn.log(`[S] Successfully null edited "${title}"`);
   } catch (err) {
-    const errorCode = err?.response?.data?.error?.code; 
-    if (errorCode === 'ratelimited') {
-      Mwn.log('[E] Rate limited. Sleeping for 5000 s...');
+    const errorCode = err?.response?.data?.error?.code;
+    if (errorCode === "ratelimited") {
+      Mwn.log("[E] Rate limited. Sleeping for 5000 s...");
       await bot.sleep(5000);
       throw err;
-    } else if (errorCode === 'protectedpage') {
+    } else if (errorCode === "protectedpage") {
       Mwn.log(`[E] "${title}" is protected.`);
     } else {
       Mwn.log(`[E] Unable to edit "${title}"`);
@@ -129,20 +133,20 @@ async function main() {
 
   const generator = (() => {
     const opts: Record<string, string> = {
-      action: 'query',
-      format: 'json',
-      list: 'allrevisions',
-      arvlimit: 'max',
-      arvdir: 'newer',
+      action: "query",
+      format: "json",
+      list: "allrevisions",
+      arvlimit: "max",
+      arvdir: "newer",
     };
     if (args.from) {
-      opts['arvstart'] = args.from;
+      opts["arvstart"] = args.from;
     }
     if (args.to) {
-      opts['arvend'] = args.to;
+      opts["arvend"] = args.to;
     }
     if (args.namespaces) {
-      opts['arvnamespace'] = args.namespaces.join('|'); 
+      opts["arvnamespace"] = args.namespaces.join("|");
     }
     return bot.continuedQueryGen(opts);
   })();
@@ -154,7 +158,7 @@ async function main() {
     }
     const pages = json.query.allrevisions;
     const titles = pages.map(({ title }: { title: string }) => title);
-    
+
     await bot.batchOperation(
       titles,
       async (title: string) => {
@@ -166,7 +170,7 @@ async function main() {
         }
       },
       /* concurrency */ 1,
-      /* retries */ 3
+      /* retries */ 3,
     );
   }
 }
