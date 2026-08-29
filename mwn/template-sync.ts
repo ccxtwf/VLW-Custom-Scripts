@@ -28,7 +28,6 @@
 import "dotenv/config";
 import minimist from "minimist";
 import deepmerge from "deepmerge";
-import { createInterface } from "readline";
 
 import { Mwn } from "mwn";
 import type { ApiResponse } from "mwn";
@@ -209,17 +208,17 @@ async function main() {
 
       return [copyFromWikiBot, copyToWikiBot];
     })();
-    
-    const prompt = createInterface({ 
-      input: process.stdin, 
-      output: process.stdout 
-    });
-    prompt.question(styleText('magenta', `You are about to copy pages from '${args.from}' (${copyFromWikiBot.options.apiUrl}) to '${args.to}' (${copyToWikiBot.options.apiUrl}). Are you sure you want to continue? [y/n] `), async (answer) => {
-      if (answer.toLowerCase().trim() === 'y') {
-        await run(copyFromWikiBot, copyToWikiBot, args);
-      }
-      prompt.close();
-    });
+
+    const isConfirmed = await waitForUserConfirmation(
+      styleText(
+        "magenta",
+        `You are about to copy pages from '${args.from}' (${copyFromWikiBot.options.apiUrl}) to '${args.to}' (${copyToWikiBot.options.apiUrl}). Are you sure you want to continue?`,
+      ),
+    );
+    if (!isConfirmed) {
+      return;
+    }
+    await run(copyFromWikiBot, copyToWikiBot, args);
   } catch (err) {
     Mwn.log(err);
     return;

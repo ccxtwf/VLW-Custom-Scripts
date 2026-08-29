@@ -3,6 +3,7 @@ import { resolve } from "path";
 import { Mwn } from "mwn";
 import { styleText } from "util";
 import { PassThrough } from "stream";
+import { createInterface } from "readline";
 
 export interface WikiProfile {
   apiEntrypoint: string;
@@ -97,4 +98,18 @@ export async function integratedLogin(bot: Mwn) {
     Mwn.log(styleText("red", `[E] ${err}`));
     throw err;
   }
+}
+
+export function waitForUserConfirmation(message: string): Promise<boolean> {
+  const prompt = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise((resolve) => {
+    prompt.question(message + " [y/n] ", async (answer: string) => {
+      let isResolved = answer.toLowerCase().trim() === "y";
+      prompt.close();
+      resolve(isResolved);
+    });
+  });
 }
