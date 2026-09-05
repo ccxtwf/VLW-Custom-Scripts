@@ -76,6 +76,7 @@ def test_edit_synth_album_page_category():
     ("[[Luo Tianyi (ACE Virtual Singer)|Luo Heng]]", "[[Luo Tianyi (Foo Studio)|Luo Heng]]"),
     ("[[Xingchen (VOCALOID)|Stardust]]", "[[Xingchen (VOCALOID)|Stardust]]"),
     ("[[Luo Tianyi (ACE Virtual Singer)]] [[Xingchen (VOCALOID)]]", "[[Luo Tianyi (Foo Studio)]] [[Xingchen (VOCALOID)]]"),
+    ("[[Luo  Tianyi (ACE Virtual Singer)]]", "[[Luo Tianyi (Foo Studio)]]"),
   ]
 )
 def test_edit_internal_links_of_synth(text: str, expected: str):

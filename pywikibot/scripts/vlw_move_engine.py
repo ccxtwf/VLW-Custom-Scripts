@@ -195,9 +195,17 @@ class EngineMoverBot(
     """
     search_pattern = f"\\[\\[[ _]*(?P<basename>[^\\]]+)[ _]+\\({self.prepare_regex_pattern(old_engine, match_underscore=True).pattern}\\)[ _]*\\|?(?P<caption>(?<=\\|).*?|)[ _]*\\]\\]"
     search_pattern = re.compile(search_pattern)
-    matches = [m for m in search_pattern.finditer(page_contents) if m.group(1) in disambiguated_synths]
-    for m in matches:
-      new_link = f"[[{m.group("basename")} ({new_engine}){f"|{m.group("caption")}" if m.group("caption") else ""}]]"
+    matches = [
+      (m, re.sub(r"[ _]+", " ", m.group("basename"))) 
+      for m in search_pattern.finditer(page_contents) 
+    ]
+    matches = [
+      (m, bn)
+      for m, bn in matches 
+      if bn in disambiguated_synths
+    ]
+    for m, bn in matches:
+      new_link = f"[[{bn} ({new_engine}){f"|{m.group("caption")}" if m.group("caption") else ""}]]"
       page_contents = page_contents.replace(m.group(0), new_link, count=1)
 
     return page_contents
