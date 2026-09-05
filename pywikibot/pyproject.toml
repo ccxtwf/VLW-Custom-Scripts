@@ -1,10 +1,12 @@
 [project]
-name = "pywikibot"
+name = "vlw-pwb-scripts"
 version = "0.1.0"
 description = "Assortment of pywikibot scripts"
 requires-python = ">=3.13"
 dependencies = [
     "aiohttp>=3.13.5",
     "mwparserfromhell>=0.7.2",
+    "pytest>=9.1.1",
+    "pywikibot>=11.7.0",
     "regex>=2026.5.9",
 ]
