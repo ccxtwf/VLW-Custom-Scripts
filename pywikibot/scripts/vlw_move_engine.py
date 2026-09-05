@@ -1,3 +1,18 @@
+"""
+
+This is a custom bot to rename a root engine category, e.g. 
+[[Category:ACE Virtual Singer song categories]] ->
+[[Category:ACE Studio song categories]]
+
+Usage:
+
+python vlw_move_engine.py <OLD ENGINE NAME> <NEW ENGINE NAME> [-simulate]
+
+  e.g. python vlw_move_engine.py "ACE Virtual Singer" "ACE Studio"
+
+  Pass -simulate to get pywikibot to run the bot as a dry-run (i.e. no 
+  edits will be made on the live wiki).
+"""
 import pywikibot as pwb
 from pywikibot import pagegenerators
 from pywikibot.bot import (

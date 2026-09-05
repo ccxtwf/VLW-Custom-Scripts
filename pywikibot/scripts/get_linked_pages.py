@@ -1,3 +1,24 @@
+"""
+
+This is a custom bot for listing pages on Special:WhatLinksHere
+
+The linking pages will be outputted onto the file "linked-pages.txt" in 
+the following format:
+  <TARGET>,   <PAGE WITH LINKS LEADING TO TARGET>,  "Link" | "Redirect"
+
+Usage:
+
+python get_linked_pages.py [<PWB FILTERS>] [-simulate]
+
+  e.g.  python get_linked_pages.py -file:list.txt
+        Reads the items listed on the file "list.txt" (namespace included) and gets the pages 
+        that link to the given pages.
+
+        python get_linked_pages.py -catr:<category>
+        Recursively iterates through the pages listed under the given category and gets the pages
+        that link to the given pages.
+
+"""
 from __future__ import annotations
 from typing import List, Tuple, Literal
 import pywikibot as pwb
@@ -29,7 +50,7 @@ class WhatLinksHereChecker(
   def teardown(self) -> None:
     with open("linked-pages.txt", mode="w+", encoding="utf-8") as f:
       for linksto, linksfrom, pagetype in self.linked_pages:
-        f.writelines([linksfrom, "\t", linksto, "\t", pagetype, "\n"])
+        f.writelines([linksto, "\t", linksfrom, "\t", pagetype, "\n"])
     pwb.info("Saved linked-pages.txt")
     return super().teardown()
 
