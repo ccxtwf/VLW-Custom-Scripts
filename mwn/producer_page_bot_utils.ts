@@ -236,7 +236,7 @@ export const producerPageBotMixin: IProducerPageBotMixin = {
           }
           return 0;
         });
-        newAwtTableWikitext = `\n\n==Discography==\n{| class="sortable producer-table"\n|- class="vcolor-default"\n! {{awt head}}\n`;
+        newAwtTableWikitext = `\n==Discography==\n{| class="sortable producer-table"\n|- class="vcolor-default"\n! {{awt head}}\n`;
         newAwtTableWikitext += missingAlbumNames.map((s) => {
           return `|-\n| {{awt row|${s}}}`;
         });
